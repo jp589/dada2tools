@@ -1,0 +1,412 @@
+---
+title: "dada2tools"
+output:
+  rmarkdown::html_vignette
+vignette: |
+  %\VignetteIndexEntry{dada2tools} 
+  %\VignetteEngine{knitr::rmarkdown} 
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE, cache=TRUE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+```{r setup, results='hide'}
+library(dada2tools)
+library(data.table)
+library(dplyr)
+library(vegan)
+library(ecodist)
+library(gifski)
+library(here)
+```
+# Introduction to dada2tools
+
+This package was written for researchers using DADA2 for their 16s rRNA sequencing data analysis. It allows easy construction of PCoA plots, heatmaps, barplots, and more. This vignette walks the reader through each of the functions in the order that they should be run with detailed examples and helpful notes.
+
+
+# Contents
+
+***
+
+## 1. [Loading The Data Set](#Loading)
+## 2. [Check Column Types](#Check)
+## 3. [Cleaning The Data Set](#Cleaning)
+###      + [Sample Renaming](#Sample)
+###      + [Filtering Taxa](#Filtering)
+####        + [Removing Taxa in Controls](#Removing)
+####        + [Prevalence](#Prevalence)
+####        + [Writing Prevalence to Excel](#Writing)
+## 4. [Named List Creation](#Named)
+## 5. [Beta Diversity Plotting](#Beta)
+## 6. [Heatmapping](#Heatmapping)
+###    + [Preparation for Heatmapping](#Preparation)
+###    + [Plotting Heatmaps](#Plotting)
+## 7. [Barplotting](#Barplotting)
+###    + [Preparation for Barplotting](#Barprep)
+###    + [Plotting Barplots](#Barplot)
+## 8. [Decontam](#Decontam)
+###    + [How to Set the Threshold](#How)
+####      + [Prepare the Data Set](#Prepare)
+####      + [Plot the Data](#Plot)
+###    + [Run Decontam with Appropriate Threshold](#Run)
+## 9. [Finishing Up](#Finishing)
+
+***
+## Loading The Data Set {#Loading}
+
+After running DADA2 on a study data set, the results must be loaded into R. DADA2 outputs a taxa table along with an ASV table. These must be merged with taxa as rows and samples as columns.
+
+This can be done with:
+```{r eval=FALSE}
+merged <- cbind(taxa.species, t(seqtab.nochim))
+```
+
+If DADA2 was run using the `Example_Script.R` within this package, the output will already be in the correct format.
+
+To access the script, which is run in three blocks, use:
+```{r eval= FALSE}
+ES <- here::here("inst", "extdata", "Example_Script.R")
+file.edit(ES)
+```
+
+It will also have been saved as a `merged.csv` file which can be loaded with:
+```{r eval = FALSE}
+#read.csv("~/path/to/file.csv", stringsAsFactors = FALSE)
+merged <- read.csv("merged.csv", stringsAsFactors = FALSE)
+```
+
+### Check Column Types {#Check}
+
+It is always good practice to make sure that all numeric columns are actually of type numeric and all character columns are actually of type character. R will often convert characters and sometimes numbers to factors. This can be a real issue since the data looks exactly the same.
+
+```{r}
+#loading the example merged data set in the package to object merged1
+merged1 <- dada2tools::merged
+#subsets only numeric columns specifed by columns 9 through the end of the data set. 
+#If species level classification was not run, there will be only 7 taxa classifications and so the '9' should be changed to '8'.
+merged_num <- data.table::as.data.table(sapply(merged1[,9:NCOL(merged1)], function(x) as.numeric(unlist((x)))))
+#subsets character columns and converts them to character. 
+#Same as before, '8' should be changed to '7' if there is no species column.
+merged_chr <- merged1[,1:8]
+merged_chr[] <- lapply(merged_chr, as.character)
+#binds them back together again.
+merged1 <- cbind(merged_chr, merged_num)
+```
+
+***
+
+## Cleaning The Data Set {#Cleaning}
+
+Now that the data set is loaded into the global environment we can begin to clean it up.
+
+***
+
+### Sample Renaming {#Sample}
+
+We first need to rename samples to something that gives us more information about what type of samples we're dealing with.
+I recommend taking note of each sample type and lead with that, followed by a unique sample identifier i.e. for a Placental Villous sample PV-17 would be appropriate.
+
+An easy way to rename samples denoted by SRR numbers is to download and use the corresponding metadata file for the fastq files originally downloaded from the NCBI. The metadata file (SraRunTable.txt) can then be converted to .csv by simply changing the extension from .txt to .csv. Then, select relevant columns in excel and modify the sample names as needed. Relevant columns for this study include `Run`, `Sample.Name`, and `Host`. Be aware that relevant columns can vary from study to study.
+
+This can then be imported into R using:
+```{r eval=FALSE}
+#read.csv("path/to/file.csv", stringsAsFactors = FALSE)
+sra_key <- read.csv("SraRunTable.csv", stringsAsFactors = FALSE)
+```
+
+The `sra_key` data file in this package is an example of what the key will look like. Note that in the merged data set and the key, the SRR numbers are in order. Make sure to sort the key by SRR number either in excel or R:
+```{r}
+library(dplyr)
+#using example sra_key from package
+sra_key <- dada2tools::sra_key
+#code to sort by the new sample name.
+sra_key <- sra_key %>% arrange(New_Name)
+head(sra_key)
+#code to sort by the Run column, which is required before renaming:
+sra_key <- sra_key %>% arrange(Run)
+head(sra_key)
+```
+
+Once sorted it is very easy to replace the column names.
+```{r}
+#It is good practice to make sure the SRR numbers corresponding to the sample names in the key match the SRR numbers in the merged data set.
+sra_key$Run %in% colnames(merged1)[match(TRUE, sapply(merged1, is.numeric)):NCOL(merged1)]
+#If they don't match, subset sra_key to SRR numbers in merged.
+sra_key <- sra_key[sra_key$Run %in% colnames(merged1)[match(TRUE, sapply(merged1, is.numeric)):NCOL(merged1)],]
+
+#Here match is just getting the column index of the leftmost numeric column and NCOL is getting the rightmost numeric column. 
+
+#colnames(data set)[leftmost_column_index:rightmost_column_index]
+#For this datset numeric indices would work just as well: 
+#colnames(merged1)[9:250] <- sra_key$New_Name
+colnames(merged1)[match(TRUE, sapply(merged1, is.numeric)):NCOL(merged1)] <- sra_key$New_Name
+head(merged1[,1:20], 5)
+```
+We can already see that now we need to sort the columns by the sample names we just gave them, which can be done with `col_reorder()`. We will also subset the data set to only *AC (Amnion-Chorion)*, *V (Villous Tree)*, and *Control Samples*.
+```{r}
+merged_ordered <- col_reorder(merged1)
+merged_ordered <- merged_ordered[, c(1:8, 38:65, 122:163, 222:250)]
+head(merged_ordered[,1:20, 5])
+```
+
+***
+### Filtering Taxa {#Filtering}
+
+We now have to remove taxa which do not meet our filter parameters.
+
+1. Bacterial in origin.
+2. Classified at least down to Phylum
+3. Not mitochondrial
+4. Not chloroplast
+
+We will also remove any samples which do not have at least 200 reads after filtering.
+
+This is all done with `dadaset_clean()` which will also give an output listing samples eliminated from further analysis.
+```{r}
+merged_clean <- dadaset_clean(merged_ordered, read_thresh = 200)
+```
+#### Removing Taxa in Controls {#Removing}
+
+A more aggressive filtering method which removes all taxa found in negative controls can be used if desired.
+```{r}
+taxa <- neg_taxa_remove(merged_clean, control_sample_columns = 37:77)
+no_control_taxa <- taxa$`No Control Taxa`
+#need to remove control samples
+no_control_taxa <- dadaset_clean(no_control_taxa, read_thresh = 1)
+```
+#### Prevalence {#Prevalence}
+
+After using various filters and cleaning the data set, it can be useful to examine the prevalence of the taxa left in each data set. We can use `prevalence()` to do so. Here we have two examples. One, where we look at the prevalence of taxa across all samples, and the second where we look at the prevalence of taxa in a subset of samples. The `subset` parameter is logical and if `TRUE`, `lt_col` and `rt_col` column index parameters must be given.
+
+```{r}
+
+Taxa_Prev_all <- prevalence(merged_clean, subset = FALSE)
+head(Taxa_Prev_all)
+
+Taxa_Prev_AC <- prevalence(merged_clean, subset = TRUE, lt_col = 9, rt_col = 36)
+head(Taxa_Prev_AC)
+```
+
+#### Writing Prevalence to Excel {#Writing}
+
+Now that we have determined the prevalence of taxa in several different subsets, we might like to combine them into a single .xlsx file as separate tabs to better compare them and store the data. We can do this using the function `prev_write_xlsx()`.
+
+Note: this function can be used to collate any number of R objects (grouped in a list but not necessarily prevalence related) into a single excel file with each object occupying a separate sheet.
+
+```{r eval= FALSE}
+prev_write_xlsx(objects = list(Taxa_Prev_all, Taxa_Prev_AC),sheetnames = c("All Taxa Prev", "AC Taxa Prev"), wb_name = "Example Prevalence")
+```
+
+
+***
+## Named List creation {#Named}
+
+At this point, the data set is cleaned enough to run our first analysis, but we'll need to create a named list indicating sample types and numbers. Named list creation is critical for many dada2tools functions. There are two ways to do this:
+
+1. Use base R
+  + `types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)`
+
+2. Use list_types()
+  + `types_list <- list_types(merged_clean, types_on_col = TRUE, split_by = "_")`
+  + `names(types_list) <- c("Amnion-Chorion", "Control", "Villous Tree")`
+  
+Either way works, but list_types can be useful for calculating numbers of samples within sample types. It gives us a crude template to then edit with more polished names. `List_types()` works by splitting sample names and using the first piece. Counts are calculated by first letter in sample names, so if there are two sample types with the same first letter list_types will not work as desired, but the output can always be edited.
+
+***
+
+## Beta Diversity Plotting {#Beta}
+
+To analyze the structure of the samples in this data set we will be creating PCoA plots of Bray-Curtis dissimilarity indices. Once the data set is cleaned and a named list accounting for all samples is created, a plot can be generated using `beta_div()`
+
+```{r fig.width= 7, fig.height= 7}
+types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
+beta_div(merged_clean, sample_types = types_list, study = "Example Study")
+```
+
+If the plot needs to be rotated for better comparison to a related PCoA plot, the `invert_x` and `invert_y` arguments can be used to correct the plot orientation.
+```{r, animation.hook= "gifski", fig.width=7, fig.height=6}
+beta_div(merged_clean, sample_types = types_list, study = "Inverted Over Y axis", invert_x = TRUE)
+beta_div(merged_clean, sample_types = types_list, study = "Inverted Over X axis", invert_y = TRUE)
+beta_div(merged_clean, sample_types = types_list, study = "Inverted Over Both Axes", invert_x = TRUE, invert_y = TRUE)
+```
+
+After generating the desired PCoA plot(s), we can now move on to heatmapping.
+
+***
+
+## Heatmapping {#Heatmapping}
+
+This package uses the Heatmap function from the `ComplexHeatmap` package, which is very useful. Detailed tutorials can be found in the [ComplexHeatmap Complete Reference](https://jokergoo.github.io/ComplexHeatmap-reference/book/).
+
+However, before we can get to that part, we need to prepare the data set for heatmapping.
+
+### Preparation for Heatmapping {#Preparation}
+
+Our data set is clean, but now we need to transform it so that genera classifications are column names, samples are on rows, and the data set is strictly of type numeric. To do all of this we use `heatmap_prep()`. Two very important arguments are `taxa_cutoff` and `mean_ab_cutoff`. Since heatmapping over 900 taxa is a bit too much and because we are interested in taxa which make up a large portion of the samples, we can employ cutoffs to slim down the data set. Both arguments apply cutoffs, but in different ways. 
+
+`taxa_cutoff` applies a ranked abundance cutoff, which only retains taxa ranked above the cutoff number given i.e. `taxa_cutoff = 10` will keep the top 10 ranked taxa by abundance.
+
+`mean_ab_cutoff` applies a mean proportional cutoff, which only retains taxa with a mean percentage of sample greater than 1%.
+
+Note, only one cutoff should be applied at a time, and `mean_ab_cutoff` will not work correctly if used after `taxa_cutoff` since proportions will change if the total number of taxa is decreased.
+
+```{r}
+preheat_ab <- heatmap_prep(merged_clean, taxa_cutoff = 0, mean_ab_cutoff = TRUE)
+head(preheat_ab, 5)
+preheat_top10 <- heatmap_prep(merged_clean, taxa_cutoff = 10, mean_ab_cutoff = FALSE)
+head(preheat_top10, 5)
+```
+
+As we can see, the two data sets prepared for heatmapping look quite similar. 
+
+One thing to keep in mind: if a taxa is not defined at the *Genus* or *Family* level and it is of high abundance, it will pass the cutoff and a column will be named as *NA Unclassified*. We can easily fix this at any step of the process. First we identify where the full classification was and then we correct it. For instance:
+
+```{r}
+#find the row index where the unclassified taxa resides.
+NA_row_index <- match("NA Unclassified", merged_clean$Genus)
+#look at the row classification. In this case, the Order is the lowest classification.
+merged_clean[NA_row_index, 2:8]
+
+#Replace the "NA unclassified" taxa with "{Order} Unclassified" at any step.
+merged_clean$Genus[NA_row_index] <- paste(merged_clean$Order[NA_row_index], "Unclassified")
+merged_ordered$Genus[NA_row_index] <- paste(merged_clean$Order[NA_row_index], "Unclassified")
+colnames(preheat_ab)[9] <- paste(merged_clean$Order[NA_row_index], "Unclassified")
+colnames(preheat_top10)[9] <- paste(merged_clean$Order[NA_row_index], "Unclassified")
+head(preheat_ab)
+```
+
+
+Now that we have the data set prepared, we should still be able to use the `types_list` generated for the PCoA plot, but if not, refer back to [Named Heatmap Creation](#Named) and create a named list for the samples in the preheated data sets.
+
+### Plotting Heatmaps {#Plotting}
+
+We are now ready to plot our first heatmap with `heatmapping()`. This function will produce a heatmap with samples grouped by sample type as defined in the named list. It has color scheme options of light-yellow to red set by `scalecolor = "red"` and black to blue set by `scalecolor = "blue"`. It also has the option to plot values by percentage of sample `by_percent = TRUE` or use raw read counts for plotting `by_percent = FALSE`.
+
+Note that we do not have to store the plot into anything to get it to be plotted.
+
+```{r fig.width=19, fig.height=8}
+heatmapping(preheat_ab, scalecolor = "red", types = types_list, title = "Example Heatmap", by_percent = TRUE)
+```
+
+We can see the differences here:
+
+```{r animation.hook= "gifski", fig.width=19, fig.height=8}
+heatmapping(preheat_ab, scalecolor = "red", types = types_list, title = "Percent True Heatmap", by_percent = TRUE)
+heatmapping(preheat_ab, scalecolor = "red", types = types_list, title = "Percent False Heatmap", by_percent = FALSE)
+heatmapping(preheat_ab, scalecolor = "red", types = types_list, title = "Red Heatmap", by_percent = TRUE)
+heatmapping(preheat_ab, scalecolor = "blue", types = types_list, title = "Blue Heatmap", by_percent = TRUE)
+```
+
+***
+
+## Barplotting {#Barplotting}
+
+This package makes it very easy to generate stacked barplots which allow easy comparisons between the taxa that make up each sample type.
+
+### Preparation for Barplotting {#Barprep}
+
+It is quite easy to transition to barplotting from heatmapping, so it is recommended to run `heatmap_prep()` on a data set before `barplot_prep()`. Simply make sure that the named list still corresponds to the samples left in the preheated data set.
+
+```{r}
+prebar <- barplot_prep(preheat_ab, sample_types = types_list)
+prebar
+```
+
+### Plotting Barplots {#Barplot}
+
+Sometimes, we may want to shift columns around before plotting the barplots:
+
+```{r}
+prebar_shifted <- data.table::setcolorder(prebar, neworder = c(1,3,2))
+prebar_shifted
+```
+
+Finally the we can make the barplots. The `rt_mar` argument is useful if the right margin needs to be increased to fit the taxa names in the legend. In this case the right margin had to be adjusted to `18` instead of the default of `10`.
+
+Note, we do not need to store these plots to be able to plot them. It's also important to note that when saving these plots, the image size can be adjusted to make sure that all column names are visible and that the legend on the right fits properly.
+
+
+```{r fig.width= 8, fig.height=8}
+barplotting(prebar_shifted, study = "Example", rt_mar = 18)
+```
+
+***
+
+## Decontam {#Decontam}
+
+For detailed instructions and tutorials on how to run Decontam or Phyloseq, please visit [Decontam Reference](https://benjjneb.github.io/decontam/vignettes/decontam_intro.html), and [Phyloseq Reference](https://joey711.github.io/phyloseq/).
+
+This package utilizes both `Decontam` and `Phyloseq` to obtain a data set relatively free of contaminants. `Decontam` has two methods of determining contaminants. A prevalence method, which is utilized in this package, and a frequency method which is not. If possible, it is advisable to use both. The prevalence method relies on the assumption that taxa that are more prevalent in negative control samples are contaminants and taxa that are more prevalent in regular samples are true taxa. However, when dealing with low read count samples such as what can be obtained from sequencing placental samples, taxa can appear equally in both negative controls and regular samples. `Decontam` employs an adjustable decontam score threshold which ranges from 0.0 to 1.0. As the threshold gets lower, more taxa are considered contaminants. The threshold cutoff selected can be somewhat subjective. A good rule of thumb is that if taxa from negative controls are still showing in regular samples in high abundances, the threshold is too low.
+
+### How to Set the Threshold {#How}
+
+
+#### Prepare the Data Set {#Prepare}
+
+With this package it is quite easy. First, we need to go back to our original `merged_clean` data set. From there, we use `decontam_prep()` to prepare the data set.
+
+```{r}
+#decontam_types needs to be a named list with samples only labeled as either "sample" or "control"
+decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
+decontam_prepped <- decontam_prep(merged_clean, type = decontam_types)
+```
+
+#### Plot the Data {#Plot}
+
+Now that our data set is prepared. We can run `decontam_histo_prev_plots()`. At this point, the threshold we choose doesn't matter. There should be a warning about removing rows containing non-finite values, but that can be ignored.
+
+```{r fig.width=9, fig.height=7, warning= FALSE}
+decontam_plots <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example")
+decontam_plots$Histogram
+```
+The histogram generated looks at every single ASV and gives it a decontam score (how likely it is to be a contaminant). It also looks at how prevalent the ASV is and plots that as a deeper green hue. Finally, ASVs that share the same Decontam score are grouped on the bars with higher prevalence ASVs at the bottom. 
+
+When making a decision for threshold value given low read count samples and a high likelihood of contamination, thresholds less than `0.5` and even less than `0.25` are appropriate. Multiple thresholds can be set to get an idea. For this data set, `0.10` was used as a final threshold. The rationale is that we are looking for highly prevalent taxa which have low decontam scores. At `0.06` and below we can see that ASVs have high prevalence and at `0.17` there is a spike of low prevalence ASVs; the former would be more likely to constitute a placental microbiome than the latter so we set a threshold in the middle.
+
+```{r fig.width=9, fig.height=7}
+decontam_plots$Prevalence_Plot
+```
+
+This Prevalence plot lets us take a different look at overall prevalence of taxa. Contaminants in blue are more likely to be found in negative controls than taxa in red. Again, going back and trying different thresholds is recommended.
+
+```{r animation.hook= "gifski", fig.width= 9, fig.height=7}
+decontam_plots.5 <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example", thresh = 0.5)
+decontam_plots.4 <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example", thresh = 0.4)
+decontam_plots.3 <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example", thresh = 0.3)
+decontam_plots.2 <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example", thresh = 0.2)
+decontam_plots.1 <- decontam_histo_prev_plots(decontam_prepped, study_name = "Example", thresh = 0.1)
+decontam_plots.5$Prevalence_Plot
+decontam_plots.4$Prevalence_Plot
+decontam_plots.3$Prevalence_Plot
+decontam_plots.2$Prevalence_Plot
+decontam_plots.1$Prevalence_Plot
+```
+
+### Run Decontam with Appropriate Threshold {#Run}
+
+Once a threshold has been chosen, it is time to finally run `decontaminate()`. We still need the original data frame from when we started the process, plus the `Phyloseq` object created when `decontam_prep()` was run.
+
+```{r}
+decontam.1 <- decontaminate(merged_clean, decontam_prepped, thresh = 0.1)
+true_taxa.1 <- decontam.1$TrueTaxa
+head(true_taxa.1[,1:20], 5)
+contaminants.1 <- decontam.1$Contaminants
+head(contaminants.1[,1:20], 5)
+```
+
+`decontaminate()` will return a list of three objects. The true taxa data set, the contaminants, and the threshold which was used. It is important to note that `decontaminate()` uses the `isNotContaminant()` function, which is only appropriate for low biomass sites or low read count sites like the placenta.
+
+***
+
+## Finishing Up {#Finishing}
+
+Now that we have a data set run through Decontam, we need to re-plot everything. We can take the `true_taxa.1` data set and use the same process to generate PCoA plots, heatmaps, and barplots. 
+
+Note that for this pass with a decontaminated data set, it is recommended to use a taxa cutoff in heatmap prep instead of the mean abundance cutoff because decontam filtering will have already modified taxa proportions by removing contaminant taxa from the data set.
+

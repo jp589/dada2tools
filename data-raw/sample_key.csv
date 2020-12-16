@@ -1,0 +1,243 @@
+,Run,Host,Sample.Name,New_Name
+1,SRR5962348,Homo sapiens,21AC,AC_21
+2,SRR5962349,Homo sapiens,21V,V_21
+3,SRR5962350,Homo sapiens,22AC,AC_22
+4,SRR5962351,Homo sapiens,22V,V_22
+5,SRR5962352,Homo sapiens,24V,V_24
+6,SRR5962353,Homo sapiens,25AC,AC_25
+7,SRR5962354,Homo sapiens,25V,V_25
+8,SRR5962355,Homo sapiens,24AC,AC_24
+9,SRR5962356,Homo sapiens,26AC,AC_26
+10,SRR5962357,Homo sapiens,26V,V_26
+11,SRR5962358,laboratory,4Room1,Control_laboratory_4Room1
+12,SRR5962359,cabinet,4Hood5,Control_cabinet_4Hood5
+13,SRR5962360,cabinet,4Hood1,Control_cabinet_4Hood1
+14,SRR5962361,cabinet,4Hood4,Control_cabinet_4Hood4
+15,SRR5962362,cabinet,4Hood3,Control_cabinet_4Hood3
+16,SRR5962363,cabinet,4Hood2,Control_cabinet_4Hood2
+17,SRR5962364,laboratory,3Room3,Control_laboratory_3Room3
+18,SRR5962365,laboratory,3Room2,Control_laboratory_3Room2
+19,SRR5962366,laboratory,3Room5,Control_laboratory_3Room5
+20,SRR5962367,laboratory,3Room4,Control_laboratory_3Room4
+21,SRR5962368,cabinet,7Hood3,Control_cabinet_7Hood3
+22,SRR5962369,cabinet,7Hood2,Control_cabinet_7Hood2
+23,SRR5962370,cabinet,7Hood1,Control_cabinet_7Hood1
+24,SRR5962371,cabinet,7Hood4,Control_cabinet_7Hood4
+25,SRR5962372,laboratory,7Room2,Control_laboratory_7Room2
+26,SRR5962373,laboratory,7Room1,Control_laboratory_7Room1
+27,SRR5962374,cabinet,7Hood6,Control_cabinet_7Hood6
+28,SRR5962375,cabinet,7Hood5,Control_cabinet_7Hood5
+29,SRR5962376,laboratory,7Room4,Control_laboratory_7Room4
+30,SRR5962377,laboratory,7Room3,Control_laboratory_7Room3
+31,SRR5962378,cabinet,3Hood5,Control_cabinet_3Hood5
+32,SRR5962379,laboratory,3Room1,Control_laboratory_3Room1
+33,SRR5962380,cabinet,3Hood3,Control_cabinet_3Hood3
+34,SRR5962381,cabinet,3Hood4,Control_cabinet_3Hood4
+35,SRR5962382,cabinet,3Hood1,Control_cabinet_3Hood1
+36,SRR5962383,cabinet,3Hood2,Control_cabinet_3Hood2
+37,SRR5962384,operating room,OR3A_1,Control_OR3A_1
+38,SRR5962385,operating room,OR3B_2,Control_OR3B_2
+39,SRR5962386,operating room,OR2A_1,Control_OR2A_1
+40,SRR5962387,operating room,OR2B_2,Control_OR2B_2
+41,SRR5962388,reagents,Kit5,Control_reagents_Kit5
+42,SRR5962389,reagents,Kit6,Control_reagents_Kit6
+43,SRR5962390,reagents,Kit1,Control_reagents_Kit1
+44,SRR5962391,reagents,Kit2,Control_reagents_Kit2
+45,SRR5962392,reagents,Kit3,Control_reagents_Kit3
+47,SRR5962394,laboratory,4Room2,Control_laboratory_4Room2
+48,SRR5962395,laboratory,4Room3,Control_laboratory_4Room3
+49,SRR5962396,laboratory,4Room4,Control_laboratory_4Room4
+50,SRR5962397,laboratory,4Room5,Control_laboratory_4Room5
+51,SRR5962398,Homo sapiens,10V,V_10
+52,SRR5962399,Homo sapiens,10AC,AC_10
+53,SRR5962400,Homo sapiens,23V,V_23
+54,SRR5962401,Homo sapiens,6V,V_06
+55,SRR5962402,Homo sapiens,6AC,AC_06
+56,SRR5962403,Homo sapiens,9V,V_09
+57,SRR5962404,Homo sapiens,23AC,AC_23
+58,SRR5962405,Homo sapiens,9AC,AC_09
+59,SRR5962406,Homo sapiens,8V,V_08
+60,SRR5962407,Homo sapiens,8AC,AC_08
+61,SRR5962408,laboratory,7Room5,Control_laboratory_7Room5
+62,SRR5962409,Homo sapiens,16AC,AC_16
+63,SRR5962410,Homo sapiens,17V,V_17
+64,SRR5962411,Homo sapiens,17AC,AC_17
+65,SRR5962412,Homo sapiens,16V,V_16
+66,SRR5962413,Homo sapiens,18V,V_18
+67,SRR5962414,Homo sapiens,18AC,AC_18
+68,SRR5962415,Homo sapiens,19V,V_19
+70,SRR5962417,Homo sapiens,20AC,AC_20
+71,SRR5962418,Homo sapiens,30V,V_30
+72,SRR5962419,Homo sapiens,30AC,AC_30
+73,SRR5962420,Homo sapiens,20V,V_20
+74,SRR5962421,Homo sapiens,29V,V_29
+75,SRR5962422,Homo sapiens,29AC,AC_29
+76,SRR5962423,Homo sapiens,28V,V_28
+77,SRR5962424,Homo sapiens,28AC,AC_28
+78,SRR5962425,Homo sapiens,27AC,AC_27
+79,SRR5962426,operating room,OR1B_2,Control_OR1B_2
+80,SRR5962427,operating room,OR1A_1,Control_OR1A_1
+81,SRR5962428,Homo sapiens,27V,V_27
+82,SRR5962429,Homo sapiens,1V,V_01
+83,SRR5962430,Homo sapiens,1AC,AC_01
+84,SRR5962431,Homo sapiens,2V,V_02
+85,SRR5962432,Homo sapiens,2AC,AC_02
+86,SRR5962433,Homo sapiens,3AC,AC_03
+87,SRR5962434,Homo sapiens,4V,V_04
+88,SRR5962435,Homo sapiens,4AC,AC_04
+89,SRR5962436,Homo sapiens,3V,V_03
+90,SRR5962437,Homo sapiens,5V,V_05
+91,SRR5962438,Homo sapiens,5AC,AC_05
+92,SRR5962439,Homo sapiens,12AC,AC_12
+93,SRR5962440,Homo sapiens,12V,V_12
+94,SRR5962441,Homo sapiens,11V,V_11
+95,SRR5962442,Homo sapiens,14AC,AC_14
+96,SRR5962443,Homo sapiens,14V,V_14
+97,SRR5962444,Homo sapiens,11AC,AC_11
+98,SRR5962445,Homo sapiens,13AC,AC_13
+99,SRR5962446,Homo sapiens,13V,V_13
+100,SRR5962447,Homo sapiens,15AC,AC_15
+101,SRR5962448,Homo sapiens,15V,V_15
+102,SRR7946012,Homo sapiens,N20_12,Nested_20_12
+103,SRR7946013,Homo sapiens,N20_11,Nested_20_11
+108,SRR7946018,Homo sapiens,N20_10,Nested_20_10
+109,SRR7946019,Homo sapiens,N20_1,Nested_20_01
+112,SRR7946022,Homo sapiens,TD_B3_1,Blank_Touchdown_B3_01
+113,SRR7946023,Homo sapiens,TD_B2_3,Blank_Touchdown_B2_03
+114,SRR7946024,Homo sapiens,TD_B2_2,Blank_Touchdown_B2_02
+115,SRR7946025,Homo sapiens,TD_B2_1,Blank_Touchdown_B2_01
+116,SRR7946026,Homo sapiens,TD_B2_4,Blank_Touchdown_B2_04
+117,SRR7946027,Homo sapiens,TD_B1_4,Blank_Touchdown_B1_04
+118,SRR7946028,Homo sapiens,TD_B1_3,Blank_Touchdown_B1_03
+119,SRR7946029,Homo sapiens,TD_B1_2,Blank_Touchdown_B1_02
+120,SRR7946030,Homo sapiens,TD_B3_3,Blank_Touchdown_B3_03
+121,SRR7946031,Homo sapiens,N20_19,Nested_20_19
+122,SRR7946032,Homo sapiens,N20_2,Nested_20_02
+123,SRR7946033,Homo sapiens,N20_17,Nested_20_17
+125,SRR7946035,Homo sapiens,N20_18,Nested_20_18
+126,SRR7946036,Homo sapiens,N20_15,Nested_20_15
+127,SRR7946037,Homo sapiens,N20_16,Nested_20_16
+128,SRR7946038,Homo sapiens,N20_13,Nested_20_13
+129,SRR7946039,Homo sapiens,N20_20,Nested_20_20
+130,SRR7946040,Homo sapiens,N20_21,Nested_20_21
+131,SRR7946041,Homo sapiens,TD_28,Touchdown_28
+132,SRR7946042,Homo sapiens,N20_14,Nested_20_14
+133,SRR7946043,Homo sapiens,TD_29,Touchdown_29
+134,SRR7946044,Homo sapiens,TD_3,Touchdown_03
+135,SRR7946045,Homo sapiens,TD_30,Touchdown_30
+136,SRR7946046,Homo sapiens,TD_4,Touchdown_04
+137,SRR7946047,Homo sapiens,TD_5,Touchdown_05
+138,SRR7946048,Homo sapiens,TD_6,Touchdown_06
+139,SRR7946049,Homo sapiens,TD_8,Touchdown_08
+140,SRR7946050,Homo sapiens,TD_9,Touchdown_09
+141,SRR7946051,Homo sapiens,TD_B1_1,Blank_Touchdown_B1_01
+142,SRR7946052,Homo sapiens,N20_26,Nested_20_26
+143,SRR7946053,Homo sapiens,N20_29,Nested_20_29
+144,SRR7946054,Homo sapiens,N20_28,Nested_20_28
+145,SRR7946055,Homo sapiens,N20_27,Nested_20_27
+146,SRR7946056,Homo sapiens,N20_23,Nested_20_23
+147,SRR7946057,Homo sapiens,N20_22,Nested_20_22
+148,SRR7946058,Homo sapiens,N20_25,Nested_20_25
+149,SRR7946059,Homo sapiens,N20_24,Nested_20_24
+150,SRR7946060,Homo sapiens,N20_3,Nested_20_03
+151,SRR7946061,Homo sapiens,TD_27,Touchdown_27
+152,SRR7946062,Homo sapiens,TD_26,Touchdown_26
+153,SRR7946063,Homo sapiens,N20_30,Nested_20_30
+154,SRR7946064,Homo sapiens,TD_23,Touchdown_23
+155,SRR7946065,Homo sapiens,TD_22,Touchdown_22
+156,SRR7946066,Homo sapiens,TD_25,Touchdown_25
+157,SRR7946067,Homo sapiens,TD_24,Touchdown_24
+158,SRR7946068,Homo sapiens,TD_19,Touchdown_19
+159,SRR7946069,Homo sapiens,TD_21,Touchdown_21
+160,SRR7946070,Homo sapiens,TD_20,Touchdown_20
+161,SRR7946071,Homo sapiens,TD_2,Touchdown_02
+172,SRR7946082,Homo sapiens,N20_4,Nested_20_04
+173,SRR7946083,Homo sapiens,N20_5,Nested_20_05
+174,SRR7946084,Homo sapiens,N20_8,Nested_20_08
+175,SRR7946085,Homo sapiens,N20_9,Nested_20_09
+176,SRR7946086,Homo sapiens,N20_B1_1,Blank_Nested_20_B1_01
+177,SRR7946087,Homo sapiens,N20_6,Nested_20_06
+178,SRR7946088,Homo sapiens,N20_B1_2,Blank_Nested_20_B1_02
+179,SRR7946089,Homo sapiens,N20_B1_3,Blank_Nested_20_B1_03
+180,SRR7946090,Homo sapiens,N20_B1_4,Blank_Nested_20_B1_04
+181,SRR7946091,Homo sapiens,N20_B2_1,Blank_Nested_20_B2_01
+183,SRR7946093,Homo sapiens,40_6,40_Cycles_06
+184,SRR7946094,Homo sapiens,40_8,40_Cycles_08
+185,SRR7946095,Homo sapiens,40_9,40_Cycles_09
+186,SRR7946096,Homo sapiens,40_4,40_Cycles_04
+187,SRR7946097,Homo sapiens,40_5,40_Cycles_05
+188,SRR7946098,Homo sapiens,40_3,40_Cycles_03
+189,SRR7946099,Homo sapiens,40_30,40_Cycles_30
+191,SRR7946101,Homo sapiens,40_29,40_Cycles_29
+192,SRR7946102,Homo sapiens,40_28,40_Cycles_28
+194,SRR7946104,Homo sapiens,40_23,40_Cycles_23
+195,SRR7946105,Homo sapiens,40_22,40_Cycles_22
+196,SRR7946106,Homo sapiens,40_21,40_Cycles_21
+197,SRR7946107,Homo sapiens,40_20,40_Cycles_20
+198,SRR7946108,Homo sapiens,40_26,40_Cycles_26
+199,SRR7946109,Homo sapiens,40_25,40_Cycles_25
+200,SRR7946110,Homo sapiens,40_24,40_Cycles_24
+201,SRR7946111,Homo sapiens,40_27,40_Cycles_27
+202,SRR7946112,Homo sapiens,TD_16,Touchdown_16
+203,SRR7946113,Homo sapiens,TD_15,Touchdown_15
+204,SRR7946114,Homo sapiens,TD_14,Touchdown_14
+205,SRR7946115,Homo sapiens,TD_13,Touchdown_13
+206,SRR7946116,Homo sapiens,TD_11,Touchdown_11
+207,SRR7946117,Homo sapiens,TD_10,Touchdown_10
+208,SRR7946118,Homo sapiens,TD_1,Touchdown_01
+209,SRR7946119,Homo sapiens,TD_12,Touchdown_12
+210,SRR7946120,Homo sapiens,TD_18,Touchdown_18
+211,SRR7946121,Homo sapiens,TD_17,Touchdown_17
+212,SRR7946122,Homo sapiens,40_15,40_Cycles_15
+213,SRR7946123,Homo sapiens,40_16,40_Cycles_16
+214,SRR7946124,Homo sapiens,40_18,40_Cycles_18
+215,SRR7946125,Homo sapiens,40_11,40_Cycles_11
+216,SRR7946126,Homo sapiens,40_12,40_Cycles_12
+217,SRR7946127,Homo sapiens,40_17,40_Cycles_17
+218,SRR7946128,Homo sapiens,40_13,40_Cycles_13
+219,SRR7946129,Homo sapiens,40_14,40_Cycles_14
+220,SRR7946130,Homo sapiens,40_19,40_Cycles_19
+221,SRR7946131,Homo sapiens,40_2,40_Cycles_02
+222,SRR7946132,Homo sapiens,N20_B4_3,Blank_Nested_20_B4_03
+223,SRR7946133,Homo sapiens,N20_B4_2,Blank_Nested_20_B4_02
+224,SRR7946134,Homo sapiens,N20_B4_1,Blank_Nested_20_B4_01
+225,SRR7946135,Homo sapiens,N20_B3_4,Blank_Nested_20_B3_04
+226,SRR7946136,Homo sapiens,N20_B3_3,Blank_Nested_20_B3_03
+227,SRR7946137,Homo sapiens,N20_B3_2,Blank_Nested_20_B3_02
+228,SRR7946138,Homo sapiens,N20_B3_1,Blank_Nested_20_B3_01
+229,SRR7946139,Homo sapiens,N20_B2_4,Blank_Nested_20_B2_04
+230,SRR7946140,Homo sapiens,N20_B2_3,Blank_Nested_20_B2_03
+231,SRR7946141,Homo sapiens,N20_B2_2,Blank_Nested_20_B2_02
+232,SRR7946142,Homo sapiens,TD_B5_3,Blank_Touchdown_B5_03
+233,SRR7946143,Homo sapiens,TD_B5_2,Blank_Touchdown_B5_02
+235,SRR7946145,Homo sapiens,TD_B5_4,Blank_Touchdown_B5_04
+236,SRR7946146,Homo sapiens,TD_B5_7,Blank_Touchdown_B5_07
+237,SRR7946147,Homo sapiens,TD_B5_6,Blank_Touchdown_B5_06
+238,SRR7946148,Homo sapiens,TD_B5_9,Blank_Touchdown_B5_09
+239,SRR7946149,Homo sapiens,TD_B5_8,Blank_Touchdown_B5_08
+240,SRR7946150,Homo sapiens,40_10,40_Cycles_10
+241,SRR7946151,Homo sapiens,40_1,40_Cycles_01
+242,SRR7946152,Homo sapiens,N20_B5_4,Blank_Nested_20_B5_04
+243,SRR7946153,Homo sapiens,N20_B5_5,Blank_Nested_20_B5_05
+244,SRR7946154,Homo sapiens,N20_B5_1,Blank_Nested_20_B5_01
+245,SRR7946155,Homo sapiens,N20_B5_10,Blank_Nested_20_B5_10
+246,SRR7946156,Homo sapiens,N20_B4_4,Blank_Nested_20_B4_04
+247,SRR7946157,Homo sapiens,N20_B4_5,Blank_Nested_20_B4_05
+248,SRR7946158,Homo sapiens,N20_B5_2,Blank_Nested_20_B5_02
+249,SRR7946159,Homo sapiens,N20_B5_3,Blank_Nested_20_B5_03
+250,SRR7946160,Homo sapiens,N20_B5_11,Blank_Nested_20_B5_11
+251,SRR7946161,Homo sapiens,N20_B5_12,Blank_Nested_20_B5_12
+261,SRR7946171,Homo sapiens,TD_B4_2,Blank_Touchdown_B4_02
+262,SRR7946172,Homo sapiens,TD_B4_3,Blank_Touchdown_B4_03
+264,SRR7946174,Homo sapiens,TD_B3_4,Blank_Touchdown_B3_04
+265,SRR7946175,Homo sapiens,TD_B4_1,Blank_Touchdown_B4_01
+266,SRR7946176,Homo sapiens,TD_B5_1,Blank_Touchdown_B5_01
+267,SRR7946177,Homo sapiens,TD_B5_10,Blank_Touchdown_B5_10
+268,SRR7946178,Homo sapiens,TD_B4_5,Blank_Touchdown_B4_05
+269,SRR7946179,Homo sapiens,TD_B5_11,Blank_Touchdown_B5_11
+270,SRR7946180,Homo sapiens,TD_B5_12,Blank_Touchdown_B5_12
+271,SRR7946181,Homo sapiens,TD_B4_4,Blank_Touchdown_B4_04
+272,SRR7946182,Homo sapiens,N20_B5_7,Blank_Nested_20_B5_07
+273,SRR7946183,Homo sapiens,N20_B5_6,Blank_Nested_20_B5_06
+274,SRR7946184,Homo sapiens,N20_B5_9,Blank_Nested_20_B5_09
+275,SRR7946185,Homo sapiens,N20_B5_8,Blank_Nested_20_B5_08

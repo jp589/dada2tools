@@ -1,0 +1,38 @@
+Package: dada2tools
+Title: DADA2 Tools
+Version: 1.0
+Authors@R: 
+    person(given = "Jonathan",
+           family = "Panzer",
+           role = c("aut", "cre"),
+           email = "jpanzer4@gmail.com",
+           comment = c(ORCID = "0000-0003-0748-5859"))
+Description: Functions to help speed up analysis of DADA2 output.
+License: GPL-3 + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Imports:
+    ComplexHeatmap (>= 2.2.0),
+    data.table (>= 1.13.2),
+    decontam (>= 1.6.0),
+    dplyr (>= 1.0.2),
+    ecodist (>= 2.0.7),
+    ggplot2 (>= 3.3.2),
+    gifski (>= 0.8.6),
+    glue (>= 1.4.2),
+    grid (>= 3.6.3),
+    here (>= 1.0.0),
+    openxlsx (>= 4.2.3),
+    phyloseq (>= 1.30.0),
+    purrr (>= 0.3.4),
+    RColorBrewer (>= 1.1.2),
+    stringr (>= 1.4.0),
+    vegan (>= 2.5.6)
+Depends: 
+    R (>= 3.5.0)
+Suggests: 
+    knitr (>= 1.30),
+    rmarkdown (>= 2.6)
+VignetteBuilder: knitr
