@@ -5,8 +5,8 @@ This package was written for researchers using DADA2 for their 16s rRNA sequenci
 
 Installation instructions:
 
-1. Install devtools in R console with:
-  `BiocManager::install(devtools)`
+1. Install devtools and load it in R console with:
+  `BiocManager::install(devtools); library(devtools)`
 2. Install the `dada2tools` package hosted on github:
   `install_github("jp589/dada2tools")`
 3. Load the package with:
