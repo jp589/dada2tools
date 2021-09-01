@@ -1,195 +1,327 @@
 
-#' Preparation for Barplotting
+#' Agglomeration
 #'
-#' Given a dataframe with genera as columns and samples as rows, this will produce a taxa by sample type dataframe.
+#' Takes taxonomy and ASV/OTU table, and merges ASVs which share an indicated taxonomic classification.
 #'
-#' @param df dataframe with genera as columns and samples as rows.
-#' @param sample_types named list where names are sample types in order, and values are number of samples per type.
+#' @param df numeric ASV/OTU table dataframe with ASVs on rows as row names and samples on columns as column names
+#' @param df_tax taxonomy table with ASVs on rows as rownames (matching `df`).
+#' @param agg_class character vector of column name in `df_tax` by which to agglomerate.
 #'
-#' @return Produces a taxa by sample type dataframe.
+#' @return a dataframe with merged ASV counts and agglomerated taxonomy as rownames.
 #' @export
 #'
 #' @examples
-#'
-#' types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-#' prebar <- barplot_prep(preheat_ab, sample_types = types_list)
-barplot_prep <- function(df, sample_types) {
-  #data frame input is transposed and converted back into a dataframe.
-  df1 <- as.data.frame(t(df))
-
-  #loops for every sample type
-  for (i in 1:length(sample_types)){
-    #adds a new column to the dataframe which represents the row sum for the columns of each sample type.
-    df1[,1 +NCOL(df1)] <- rowSums(df1[,1:sample_types[[i]]])
-    #subsets the dataframe to only those columns newly added.
-    df1 <- df1[,(sample_types[[i]]+1):NCOL(df1)]
+agglomerate <- function(df, df_tax, agg_class){
+  library(dplyr)
+  df_final <- c()
+  class_list <- unique(df_tax[[agg_class]])
+  for(i in 1:length(class_list)){
+    df_sub <- df %>% filter(df_tax[[agg_class]] == class_list[i])
+    df_sums <- as.data.frame(t(data.frame(CS = colSums(df_sub))))
+    rownames(df_sums)[1] <- unique(df_tax[[agg_class]])[i]
+    df_final <- rbind(df_final, df_sums)
   }
-  #uses the names of the sample types for column names.
-  colnames(df1) <- names(sample_types)
-  return(df1)
+  df_final
 }
 
+#' Barplot Preparation
+#'
+#' Prepares data for barplotting. Recommended to use result from `heatmap_prep()` for `df`.
+#'
+#' @param df numeric dataframe with ASVs on columns and samples on rows.
+#' @param df_meta sample metadata with samples on rows.
+#' @param type_col character vector of column name in `df_meta` to be used for sample grouping
+#' @param study character vector of study name/title.
+#' @param DECONTAM_dataset boolean vector indicating whether dataset has been processed through DECONTAM.
+#'
+#' @return dataframe ready for `barplotting()`
+#' @export
+#'
+#' @examples
+barplot_prep <- function (df, df_meta, type_col, study, DECONTAM_dataset = FALSE) {
+  library(dplyr)
+  prebar <- c()
+  df1 <- as.data.frame(t(df))
+  df_ordered <- df1[df1 %>% rowSums(.) %>% sort(., decreasing = TRUE) %>% names(.),]
+  uniques <- sort(unique(df_meta[[type_col]]))
+  if("Technical Control" %in% uniques){
+    uniques <- uniques[c(match("Technical Control", uniques), which(uniques %ni% "Technical Control"))]
+  }
+  for(i in 1:length(uniques)){
+    df_subset <- df_ordered %>% select_if(df_meta[[type_col]] == uniques[i])
+    prebar <- as.data.frame(rbind(prebar, data.frame(
+      ASVs = factor(levels = rev(rownames(df_subset)), x = rownames(df_subset)),
+      Type = factor(levels = uniques, x = rep(uniques[i], dim(df_subset)[1])),
+      Genus = factor(levels = make.unique(rev(sub(pattern = "(ASV\\d+)(-)(.*)", x = rownames(df_subset), replacement = "\\3"))), x = make.unique(sub(pattern = "(ASV\\d+)(-)(.*)", x = rownames(df_subset), replacement = "\\3"))),
+      Total_Reads = as.numeric(rowSums(df_subset)),
+      Relative_Reads = as.numeric(100*prop.table(as.matrix(rowSums(df_subset)),2)),
+      Study = rep(study, dim(df_subset)[1]),
+      DECONTAM = rep(DECONTAM_dataset, dim(df_subset)[1])
+    )))
+  }
+  return(prebar)
+}
 
 #' Barplotting
 #'
-#' Function used to create stacked barplots of absolute and relative reads of sample types.
+#' Function used to create stacked barplots of absolute and relative reads of sample types. Plots will be arranged so that after DECONTAM dataset is below regular version.
 #'
 #' @param df dataframe prepared with barplot_prep()
 #' @param study name of the study or origin of the data
-#' @param rt_mar adjustable right margin parameter. For when taxa names exceed space. Default is 10.
+#' @param deco_df optional dataframe prepared with barplot_prep() but processed with DECONTAM
+#' @param legend_cols numeric vector of number of columns to split legend into.
+#' @param leg_title character vector to name legend.
 #'
-#' @return returns a list of barplots.
+#' @return returns a plot object.
 #' @export
 #'
 #' @examples
 #'
 #' types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
 #' prebar <- barplot_prep(preheat_ab, sample_types = types_list)
-#' barplotting(df = prebar, study = "Example", rt_mar = 18)
-barplotting <- function(df, study, rt_mar = 10) {
-  #ensures dataset is a dataframe if not already.
-  df <- as.data.frame(df)
+barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
+  #this will plot the barplot in one section of the screen and the legend in another.
 
-  #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
-  getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
+  if(!missing(deco_df)){
+    #ensures dataset is a dataframe if not already.
+    df <- as.data.frame(df)
+    deco_df <- as.data.frame(deco_df)
+    totalsD <- deco_df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
+    totals <- df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
 
-  #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
-  colr <- getPalette(NROW(df))
+    All_combined <- rbind(df, deco_df)
+    abundance_totals <- All_combined %>% group_by(ASVs) %>% summarise(sum = sum(Total_Reads))
+    abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
+    abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
+    #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
+    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
+    colr <- getPalette(length(unique(All_combined$ASVs)))
+    abundance_totals$Color <- colr
+    abundance_totals$Color[match("Other", abundance_totals$ASVs)] <- "#808080"
 
-  #sets the graphical parameters xpd to NA which allows plotting outside the normal bounds, and increases the right margin by 10 by default.
 
-  graphics::par(xpd = NA, mar = c(5.1,4.1,4.1, rt_mar))
+    #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
+    Leg_vals <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(Color); names(Leg_vals) <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(ASVs)
+    for_legend <- ggplot(data = All_combined, aes(x=Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + theme(legend.text = element_text(face = "italic")) + ylab("Percent Relative Abundance") +  scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggtitle(paste("For Legend", "by type"))
+    Legend_alone <- get_legend(for_legend)
 
-  #plots the absolute reads per sample type as a stacked barplot.
-  plot_abs <- graphics::barplot(as.matrix(df), col = colr, border = "white", ylab = "Absolute Reads", main = paste(study, "Samples by Type"))
+    Rel_vals <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(Color); names(Rel_vals) <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(ASVs)
+    Relative <- ggplot(data = df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      scale_fill_manual(values = Rel_vals)
 
-  #includes a legend to the right of the plot. x and y coordinates can be adjusted as necessary to fit properly.
-  graphics::legend(x = (NCOL(df) + 1), y = max(colSums(df)), legend = rownames(df[order(nrow(df):1),]), fill = rev(colr), bty = "n")
+    RelD_vals <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(Color); names(RelD_vals) <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(ASVs)
+    RelativeD <- ggplot(data = deco_df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      scale_fill_manual(values = RelD_vals)
+    plot <- plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
+  } else {
 
-  #transforms average absolute abundance read counts to percentages of sample types.
-  df.prop <- as.data.frame(prop.table(as.matrix(df),2)); df.prop <- df.prop*100
+    df <- as.data.frame(df)
+    totals <- df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
+    abundance_totals <- All_combined %>% group_by(ASVs) %>% summarise(sum = sum(Total_Reads))
+    abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
+    abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
+    #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
+    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
+    colr <- getPalette(length(unique(All_combined$ASVs)))
+    abundance_totals$Color <- colr
+    abundance_totals$Color[match("Other", abundance_totals$ASVs)] <- "#808080"
 
-  #plots the taxa percentages of sample types
-  plot_prop <- graphics::barplot(as.matrix(df.prop), col = colr, border = "white", ylab = "Avg Percentage of Sample", main = paste(study, "Samples by Type"))
 
-  #creates a legend of taxa and their colors and places it to the right of the plot.
-  graphics::legend(x = (NCOL(df.prop) + 1), y = 100, legend = rownames(df.prop[order(nrow(df.prop):1),]), fill = rev(colr), bty = "n")
+    #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
+    Leg_vals <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(Color); names(Leg_vals) <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(ASVs)
+    for_legend <- ggplot(data = All_combined, aes(x=Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + theme(legend.text = element_text(face = "italic")) + ylab("Percent Relative Abundance") +  scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggtitle(paste("For Legend", "by type"))
+    Legend_alone <- get_legend(for_legend)
 
-  #resets the plotting margins back to original settings.
-  graphics::par(mar = c(5.1,4.1,4.1,4.1))
+    Rel_vals <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(Color); names(Rel_vals) <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(ASVs)
+    Relative <- ggplot(data = df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      scale_fill_manual(values = Rel_vals)
 
-  #returns a list of the two plots.
-  plots <- list(Abs_Abundance = plot_abs, Proportional = plot_prop)
-  return(plots)
+    RelD_vals <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(Color); names(RelD_vals) <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(ASVs)
+    RelativeD <- ggplot(data = deco_df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      scale_fill_manual(values = RelD_vals)
+    plot <- plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
+  }
+
+  return(plot)
 }
 
-
-#' PCoA plotting
+#' Beta Diversity Plotting
 #'
-#' Create a PCoA plot based on Bray-Curtis dissimilarity to map samples and visualize similarity.
+#' A beta diversity plotting function built in base R to make a PCoA plot of Bray-Curtis distances between samples.
 #'
-#' @param df a dataset that has been processed by dadaset_clean() and col_reorder()
-#' @param sample_types a named list of sample types with counts per sample types as values
-#' @param study name of study from which dataset originated
-#' @param inset alters the placement of the legend. -0.4 is the default.
-#' @param rt_margin adjusts the size of the right margin if needed to fit the legend.
-#' @param invert_x flips plot over the y-axis.
-#' @param invert_y flips plot over the x-axis.
+#' @param df merged data frame with taxonomy on rows.
+#' @param df_meta metadata dataframe with samples as rows
+#' @param type character vector indicating `df_meta` column name of column for primary sample grouping (by color).
+#' @param study character vector indicating dataset study name or title for plot.
+#' @param inset numeric vector designating horizontal position of legend on plot. Positive values move the legend left, negative values move it to the right. Default is 0
+#' @param invert_x boolean vector indicating whether plot should be inverted over the y-axis.
+#' @param invert_y boolean vector indicating whether plot should be inverted over the x-axis.
+#' @param ASP numeric vector. Aspect ratio for the plot. Default is 1
+#' @param Legend_Yspace numeric vector which modifies the spacing between legend entries. Default is 1, Range between 0 and 1.
+#' @param rel boolean vector indicating whether data in `df` is already converted to percent relative abundances or not. Default is `FALSE`
+#' @param red_blue boolean vector indicating whether red/blue color palette is desired. Default is `FALSE`
+#' @param all_O boolean vector indicating whether all points should be plotted as open circles. Defualt is `FALSE`
+#' @param taxa_on_rows boolean vector indicating whether ASVs/OTUs in `df` taxonomy are on rows or on columns. Default is `TRUE`
+#' @param highlight optional character vector of all samples to be colored normally
+#' @param nonhgrey optional boolean vector indicating whether non-highlighted samples should be grey (`TRUE`) or left blank (`FALSE`)
+#' @param type2 optional character vector of column name from `df_meta` to perform secondary grouping on dataset (by shape)
+#' @param legendyn boolean vector indicating whether to include legend in plot. Default is `TRUE`.
+#' @param size optional numeric vector indicating size of all points plotted.
+#' @param transp optional numeric vector indicating transparency of all points to be plotted. Range from 0 to 1.
 #'
-#' @return returns a Bray-Curtis PCoA plot of sample types with a legend on the right.
+#' @return plots beta diversity PCoA plot and returns a dataframe containing eigenvalues and vectors for all possible plotting axes.
 #' @export
 #'
 #' @examples
-#' types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-#' beta_div(merged_clean, sample_types = types_list, study = "Example Study")
-beta_div <- function(df, sample_types, study, inset = -0.4, rt_margin = 9.1, invert_x = FALSE, invert_y = FALSE) {
+beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, invert_y = FALSE, ASP = 1, Legend_Yspace = 1, rel = FALSE, red_blue = FALSE, all_O = FALSE, taxa_on_rows = TRUE, highlight, nonhgrey = FALSE, type2, legendyn = TRUE, size, transp, PCH_vec) {
+  #records current palette
+  pal <- palette()
 
-  #converts dataframe to datatable.
-  dt <- data.table::as.data.table(df)
+  #subsets data frame to only columns that are numeric.
+  dt_numeric <- df %>% select_if(., is.numeric)
 
-  #subsets data table to only columns that are numeric.
-  dt_numeric <- dt[,sapply(dt, is.numeric), with = FALSE]
+  #converts total counts to relative abundances.
+  if(rel == TRUE) {
+    dt_numeric <- dt_numeric/colSums(dt_numeric)
+  }
 
   #transposes the dataset so that species are on columns and samples are on rows.
-  df_numeric_t <- as.data.frame(t(dt_numeric))
-
-  #instantiates X
-  X <- c()
-
-  #creates a character vector X which contains defined length repeats of each sample type name based on the value the sample type.
-  for (i in 1:length(sample_types)) {
-    X <- append(X, values = rep(names(sample_types)[i],sample_types[[i]]))
+  if(taxa_on_rows == TRUE){
+    df_numeric_t <- as.data.frame(t(dt_numeric))
   }
-  #creates a Type column and fills it with values from X
-  df_numeric_t$Type <- X
+  else {
+    df_numeric_t <- as.data.frame(dt_numeric)
+  }
+
+  #gets factor data for sample type from metadata
+  X <- df_meta[[type]]
 
   #uses the vegdist() function to calculate bray-curtis dissimilarity indices
-  df.bray <- vegan::vegdist(df_numeric_t[1:(NCOL(df_numeric_t)-1)])
+  df.bray <- vegan::vegdist(df_numeric_t[1:NCOL(df_numeric_t)])
 
-  #transforms B-C indices to PCoA coordinates
-  df.pcoa <- ecodist::pco(df.bray)
+  #transforms Bray-Curtis indices to PCoA coordinates
+  df.pcoa <- ecodist::pco(df.bray, negvals = "rm")
+
+  #calculates Relative Eigenvalues for axes 1 and 2
+  axis1_rel_eigen <- round(100*df.pcoa$values[1]/sum(df.pcoa$values), digits = 2)
+  axis2_rel_eigen <- round(100*df.pcoa$values[2]/sum(df.pcoa$values), digits = 2)
 
   #options for inverting over the X or Y axis.
   ifelse(invert_x == TRUE, invert_x <- -1, invert_x <- 1)
   ifelse(invert_y == TRUE, invert_y <- -1, invert_y <- 1)
 
-  #sets the plot margins with adjustable right margin.
-  graphics::par(xpd = NA, mar=c(5.1, 4.1, 4.1, rt_margin))
+  #blue and red color scheme
+  if (red_blue == TRUE){
+    cols <- c("#353795", "#a41d24")
+  } else {
+    cols <- 0
+  }
 
+  if(!missing(highlight)){
+    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
+    colr <- getPalette(length(unique(highlight)))
+    highlight_bool <- X %in% highlight
+    col_vec <- color_rep(colr, X, highlight, highlight_bool, nonhgrey)
+  }
+  if(!missing(transp)){
+    transparent_colr <- palette.colors(n = length(unique(df_meta[[type]])), palette = "R4", alpha = transp)
+    transp_vec <- color_rep(transparent_colr, X, nonhgrey = FALSE)
+  }
+
+  graphics::par(xpd = FALSE)
   #plots the PCoA. pch parameter is used to change the shape of point used(i.e. star instead of dot)
-  graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= as.numeric(as.factor(df_numeric_t$Type)), pch=as.numeric(as.factor(df_numeric_t$Type)), main = paste(study, "by Sample Type"), xlab = "PCO1", ylab = "PCO2")
-  #adds a legend in the topright corner of the plot with adjustable inset.
-  graphics::legend("topright", inset = c(inset,0), legend = sort(unique(df_numeric_t$Type)), col = 1:length(unique(df_numeric_t$Type)), pch = 19, bty = "n")
-  #resets the plotting settings to original.
-  graphics::par(xpd = FALSE, mar=c(5.1, 4.1, 4.1, 4.1))
+  if(!missing(type2)){
+    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{if(!missing(transp)){transp_vec}else{as.numeric(as.factor(df_meta[[type]]))}}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= as.numeric(as.factor(df_meta[[type2]])), main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
+  } else{
+    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{if(!missing(transp)){transp_vec}else{as.numeric(as.factor(df_meta[[type]]))}}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= if(all_O == TRUE){1}else{as.numeric(as.factor(df_meta[[type2]]))}, main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
+  }
+
+  if(legendyn == TRUE){
+    #adds a legend in the topright corner of the plot with adjustable inset.
+    if(!missing(type2)){
+      graphics::legend("bottomright", inset = c(inset, 0), legend = sort(unique(df_meta[[type2]])), col = "black", pch = as.numeric(as.factor(df_meta[[type2]])), bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
+      graphics::legend("topright", inset = c(inset,0), legend = sort(unique(df_meta[[type]])), col = if(red_blue == TRUE){cols[as.numeric(as.factor(sort(unique(X))))]}else{1:length(unique(X))}, pch = 19, bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
+    } else{
+      graphics::legend("topright", inset = c(inset,0), legend = sort(unique(df_meta[[type]])), col = if(red_blue == TRUE){cols[as.numeric(as.factor(sort(unique(X))))]}else{1:length(unique(X))}, pch = 19, bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
+    }
+  }
+  #resets palette to original
+  palette(pal)
+
+  df.pcoa
 }
 
 
-#' Column Reorder
+#' Blaster
 #'
-#' Reorders numeric columns alphabetically based on sample names.
+#' Sequence queries are crosschecked to a local 16S rRNA gene database. Subject titles returned are the names of the database sequences which match the query sequences.
+#' This function needs to run in the top level project directory i.e. /Analysis_Ready_Files.
 #'
-#' @param dt input which is a dada2 taxa table fused to the ASV table.
+#' @param seqs a character vector of 16S rRNA gene sequences to be cross checked against a local 16S rRNA gene database
+#' @param names a character vector equal in length to `seqs` which denotes the query name for each sequence.
+#' @param alignments an integer value designating how many alignments should be returned per sequence query.
 #'
-#' @return Reordered data table
+#' @return A summary table listing the query names, Expect value, Bitscore, Subject TAX ID, Percent Identical, Query Coverage, and Subject Title.
 #' @export
 #'
 #' @examples
-#' merged_clean_reordered <- col_reorder(merged_clean)
-col_reorder <- function(dt){
-  #converts input to data table if it wasn't already.
-  dt <- data.table::as.data.table(dt)
-
-  #subsets data table to only columns that are numeric.
-  mcn <- dt[,sapply(dt, is.numeric), with = FALSE]
-
-  #Stores the correct order of samples based on their column names alphabetically.
-  mco <- order(names(mcn))
-
-  #performs the reordering of "mcn" based on order in "mco"
-  col_reordered <- data.table::setcolorder(mcn, mco)
-
-  #merges original taxa with reordered ASV table.
-  all <- cbind(dt[,1:8], col_reordered)
-
-  all
+blaster <- function(seqs, names, alignments = 1) {
+  #store sequence data in fasta formatted object
+  seqinr::write.fasta(sequences = as.list(seqs), names = names, file.out = "blaster.fasta")
+  #Take fasta object and run it against 16S rRNA gene database.
+  system(paste0("blastn -query ", paste0(getwd(), "/blaster.fasta -num_alignments "), alignments, " -num_threads 3 -out ", paste0(getwd(), "/Blasted.tsv -outfmt \"6 qseqid evalue bitscore staxids pident qcovs stitle\" -db "), paste0(getwd(), "/16S_ribosomal_RNA")))
+  results <- read.table(file = "Blasted.tsv", sep = "\t", stringsAsFactors = FALSE)
+  colnames(results) <- c("Query Seq ID", "Expect value", "Bitscore", "Subject TAX ID", "Percent Identical", "Query Coverage", "Subject Title")
+  results
 }
+
+#' Color Replication
+#'
+#' Ancillary function to `beta_div()` which allows for modification of plotted colors. In particular, it allows for certain points to be highlighted while others are colored grey or left blank.
+#'
+#'
+#' @param colors color palette as character vector of colors to be used.
+#' @param full_set factor vector indicating sample group for each sample.
+#' @param highlight character vector of all samples to be colored normally
+#' @param highlight_bool boolean vector indicating which samples are in `highlight`.
+#' @param nonhgrey boolean vector indicating whether non-highlighted samples should be grey (`TRUE`) or left blank (`FALSE`)
+#'
+#' @return a new character vector containing the new colors by sample.
+#' @export
+#'
+#' @examples
+color_rep <- function(colors, full_set, highlight, highlight_bool, nonhgrey){
+  uniques <- unique(full_set)
+  color_vector <- c()
+  if (missing(highlight)){
+    for(i in 1:length(full_set)){
+      color_vector <- append(color_vector, colors[full_set[i] == uniques])
+    }
+  } else {
+    for(i in 1:length(full_set)){
+      color_vector <- append(color_vector, ifelse(highlight_bool[i] == TRUE, colors[match(full_set[i], highlight)], NA))
+    }
+  }
+  if(nonhgrey == TRUE){
+    color_vector[is.na(color_vector)] <- "#D3D3D3"
+  }
+  color_vector
+}
+
+
 
 #' Dadaset Clean
 #'
-#' Clean a merged dataset output from dada2 (include species) (taxa:ASV table)
+#' Removes taxonomy which is not classified as bacteria, or down to the phylum level, mitochondria, and chloroplast. Also removes samples which are below a designated read threshold after filtering.
 #'
-#' @param df merged dataset
-#' @param read_thresh Total ASV reads for samples to pass (>= read_thresh)
+#' @param df a merged dataframe i.e. taxonomy on rows and samples on columns.
+#' @param read_thresh a numeric vector determining the number of reads per sample below which a sample is removed from the dataset. This cutoff is applied after filtering taxonomy. The default is 100.
 #'
-#' @return returns dataset with only samples that passed.
-#' @importFrom dplyr %>%
-#' @importFrom purrr pmap
+#' @return a merged dataframe which is free of unclassified taxonomy at the phylum level, and non-bacterial mitochondrial, and chloroplast sequences.
 #' @export
 #'
 #' @examples
-#' merged_clean <- dadaset_clean(merged, read_thresh = 200)
-dadaset_clean <- function(df, read_thresh = 200) {
+dadaset_clean <- function(df, read_thresh = 100) {
   Kingdom <- Phylum <- Family <- Order <- NULL
 
   #records how many taxa were in the original dataset before processing.
@@ -219,24 +351,24 @@ dadaset_clean <- function(df, read_thresh = 200) {
   #records how many taxa are left after Chloroplast elimination.
   nrow_taxa_Chl <- NROW(df2)
 
-  #converts data frame to data table
-  dt <- data.table::as.data.table(df2)
-
-  #subsets data table to columns that are numeric.
-  dt_numeric <- dt[,sapply(dt, is.numeric), with = FALSE]
+  df2_numeric <- df2 %>% select_if(., is.numeric)
 
   #dplyr way of removing samples with less than read_thresh reads.
   #first calculate sums of all columns
-  dt_num_pass <- dt_numeric %>% dplyr::select_if(function(col) sum(col) >= read_thresh)
-  elim <- dt_numeric %>% dplyr::select_if(function(col) sum(col) < read_thresh)
+  df2_num_pass <- df2_numeric %>% dplyr::select_if(function(col) sum(col) >= read_thresh)
+  elim <- df2_numeric %>% dplyr::select_if(function(col) sum(col) < read_thresh)
   elim_names <- names(elim)
-  cleaned <- cbind(dt[,sapply(dt, is.character), with = FALSE], dt_num_pass)
+  cleaned <- cbind(df2 %>% select_if(., is.character), df2_num_pass)
 
   #Replacement of NA's in Genus column with "{Family} unclassified". Calls function unclassified_replace.
-  cleaned$Genus <- cleaned %>% pmap(unclassified_replace)
+  #cleaned$Genus <- cleaned %>% pmap(unclassified_replace2)
 
   #Ensures Genus column is of type character.
-  cleaned$Genus <- as.character(cleaned$Genus)
+  #cleaned$Genus <- as.character(cleaned$Genus)
+
+  for(i in 2:6){
+    cleaned[,(i + 1)] <- purrr::map2_chr(cleaned[,i], cleaned[,(i+1)], unclassified_replace)
+  }
 
   #Outputs changes made to dataset.
   cat("Originally there were", nrow_taxa_ori, "taxa.", nrow_taxa_ori - nrow_taxa_bac, "were not bacterial or classified at phylum level.", nrow_taxa_bac - nrow_taxa_Mit, "were mitochondrial.", nrow_taxa_Mit - nrow_taxa_Chl, "were chloroplast.", nrow_taxa_Chl, "taxa remain. ")
@@ -245,15 +377,18 @@ dadaset_clean <- function(df, read_thresh = 200) {
   #at this point the dataset is cleaned and ready to move to preparation for other analyses.
   #sample type counts should be made in a list with list_types or manually for heatmap_prep
 
+  cleaned <- as.data.frame(cleaned)
   cleaned
 }
 
-#' Preparation for Decontam
+#' Preparation for DECONTAM
 #'
-#' Prepares a merged_clean dataset that has been run through dadaset_clean() and col_reorder() for running Decontam.
+#' Prepares a merged_clean dataset that has been run through dadaset_clean() for processing with DECONTAM
 #'
-#' @param df merged_clean dataset
-#' @param type a named list where each sample is either "sample" or "control" (as in negative control).
+#' @param df merged_clean dataset with taxonomy and ASV table combined. ASVs should be on rows.
+#' @param type the name of a column in `meta` where each sample is either "sample" or "control" (as in Technical control).
+#' @param meta a metadata data frame with column `type`
+#' @param sample_col character vector of column name in `meta` which indicates sample names. Also should match column names in merged dataset.
 #'
 #' @return returns a phyloseq object which can then be used in decontam_histo_prev_plots()
 #' @export
@@ -261,14 +396,7 @@ dadaset_clean <- function(df, read_thresh = 200) {
 #' @examples
 #' decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
 #' pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
-decontam_prep <- function(df, type) {
-
-  #instantiates type1 vector
-  type1 <- c()
-  #creates character vector where named types ("sample" or "control") are repeated as many times as denoted in list.
-  for(i in 1:length(type)){
-    type1 <- append(type1, values = rep(names(type)[i], type[i]))
-  }
+decontam_prep <- function(df, meta, type, sample_col){
 
   #ensures data is of type dataframe
   df <- as.data.frame(df)
@@ -276,32 +404,28 @@ decontam_prep <- function(df, type) {
   df_num <- dplyr::select_if(df, is.numeric)
 
   #creates an "OTU Table" from the numeric columns of the merged_clean dataset
-  OTU = phyloseq::otu_table(df_num, taxa_are_rows = TRUE)
+  OTU = phyloseq::otu_table(object = df_num, taxa_are_rows = TRUE)
 
   #taxa table created from taxa classifications Kingdom through Genus
   TAX = phyloseq::tax_table(as.matrix(df[,2:7]))
 
   #sample data phyloseq object SAM created with Type column populated by type1 chr vector.
-  SAM = phyloseq::sample_data(data.frame(
-    Type = type1,
-    row.names = names(df_num),
-    stringsAsFactors = FALSE
-  ))
+  SAM = phyloseq::sample_data(data.frame(data = meta[[type]], row.names = meta[[sample_col]]))
+
   #combine all phyloseq tables into one phyloseq object
   physeq <- phyloseq::phyloseq(OTU, TAX, SAM)
   physeq
 }
 
-
-#' Generate Decontam Histogram and Prevalence Plots
+#' Generate DECONTAM Histogram and Prevalence Plots
 #'
-#' To be used on a Phyloseq object to generate a histogram of Decontam scores and a prevalence plot.
+#' To be used on a Phyloseq object to generate a histogram of DECONTAM scores and a prevalence plot.
 #'
 #' @param physeq phyloseq object with OTU, TAX, and SAM components
-#' @param thresh Decontam score threshold. Default is 0.5
-#' @param study_name name of the study where the dataset is from.
+#' @param thresh DECONTAM score threshold. Default is 0.5
+#' @param study_name character vector name of the study/title for plot.
 #'
-#' @return returns histogram and prevalence plots.
+#' @return returns a list object of the histogram and prevalence plots.
 #' @export
 #'
 #' @examples
@@ -309,10 +433,10 @@ decontam_prep <- function(df, type) {
 #' pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
 #' decontam_histo_prev_plots(pre_decontam, thresh = 0.5, study_name = "Study Name")
 decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
-  p <- prev <- physeq.neg <- physeq.pos <- contaminant <- NULL
 
+  p <- prev <- physeq.neg <- physeq.pos <- contaminant <- NULL
   #creates new column of type logical to determine which samples are controls (TRUE) or samples (FALSE) based on data in Type column.
-  phyloseq::sample_data(physeq)$is.neg <- phyloseq::sample_data(physeq)$Type == "control"
+  phyloseq::sample_data(physeq)$is.neg <- phyloseq::sample_data(physeq)$data == "control"
 
   #runs isNotContaminant() which splits taxa up into contaminants and true taxa.
   #isNotContaminant() is chosen here over isContaminant() since samples are presumed low biomass and the majority of taxa are assumed to be contaminants.
@@ -341,10 +465,10 @@ decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
   physeq.pa <- phyloseq::transform_sample_counts(physeq, function(abund) 1*(abund>0))
 
   #subsets samples which are controls into phyloseq object physeq.pa.neg
-  physeq.pa.neg <- phyloseq::prune_samples(phyloseq::sample_data(physeq.pa)$Type == "control", physeq.pa)
+  physeq.pa.neg <- phyloseq::prune_samples(phyloseq::sample_data(physeq.pa)$data == "control", physeq.pa)
 
   #subsets samples which are actual samples into phyloseq object physeq.pa.pos
-  physeq.pa.pos <- phyloseq::prune_samples(phyloseq::sample_data(physeq.pa)$Type == "sample", physeq.pa)
+  physeq.pa.pos <- phyloseq::prune_samples(phyloseq::sample_data(physeq.pa)$data == "sample", physeq.pa)
 
   #creates a data frame where taxa prevalence is summed up across control and true samples. Contaminants are indicated in !contamdf.prev$not.contaminant
   df.pa <- data.frame(physeq.pos= phyloseq::taxa_sums(physeq.pa.pos), physeq.neg = phyloseq::taxa_sums(physeq.pa.neg),
@@ -363,11 +487,11 @@ decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
 
 #' Decontaminate Dataset
 #'
-#' Final function for using Decontam.
+#' Final function for using DECONTAM.
 #'
 #' @param df dataframe from which the phyloseq object was generated with decontam_prep()
 #' @param physeq phyloseq object created from running decontam_prep()
-#' @param thresh threshold chosen from looking at histogram and prevalence plots
+#' @param thresh numeric vector of threshold chosen based on histogram and prevalence plots.
 #'
 #' @return gives a list of dataframes split into true taxa, contaminants, and the chosen threshold.
 #' @export
@@ -380,7 +504,7 @@ decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
 decontaminate <- function(df, physeq, thresh) {
 
   #creates new column of type logical to determine which samples are controls (TRUE) or samples (FALSE) based on data in Type column.
-  phyloseq::sample_data(physeq)$is.neg <- phyloseq::sample_data(physeq)$Type == "control"
+  phyloseq::sample_data(physeq)$is.neg <- phyloseq::sample_data(physeq)$data == "control"
 
   #isNotContaminant() is chosen here over isContaminant() since samples are presumed low biomass and the majority of taxa are assumed to be contaminants.
   #Keep in mind that Trues are not contaminants
@@ -394,205 +518,425 @@ decontaminate <- function(df, physeq, thresh) {
   list(TrueTaxa = true_taxa, Contaminants = contaminants, Threshold = thresh)
 }
 
-#' Create Sample Type List
+#' DePhyloseqize
 #'
-#' Crude way to create Sample Type Lists for later PCoA plotting, heatmapping, or barplotting analyses.
+#' Takes a phyloseq object and converts it back into a merged taxonomy and ASV/OTU table.
 #'
-#' @param df dataset with sample names on columns or rows.
-#' @param types_on_col if sample names are on columns this should be true, if on rows this should be false
-#' @param split_by character to separate sample type name from unique identifier. Default is underscore.
+#' @param phyloseq_obj the phyloseq object to be converted
 #'
-#' @return Returns list of sample types and their counts based on the first letter of every sample.
+#' @return a merged taxonomy and ASV/OTU table as a data frame.
 #' @export
 #'
-#' @examples
-#' Sample_Types <- list_types(merged_clean, types_on_col = TRUE, split_by = "_")
-list_types <- function(df, types_on_col = FALSE, split_by = "_"){
-  X <- NULL
-
-  #Determines whether column names or row names should be split into sample types.
-  if (types_on_col == TRUE) {
-    #Takes first letter of each column name and puts it into a dataframe.
-    df2 <- as.data.frame((substr(colnames(df)[9:NCOL(df)], 0, 1)))
-
-    #Names column "X"
-    colnames(df2) <- "X"
-
-    #makes tally of each unique first letter.
-    type_counts <- df2 %>% dplyr::count(X)
-    #makes note of unique column names using the first part of the sample name and splits by user input character.
-    type_names <- unique(sapply(strsplit(colnames(df)[9:NCOL(df)], split = split_by), `[`, 1))
+#' @examples merged_dephy <- dephy(phyloseq_obj = phy)
+dephy <- function(phyloseq_obj){
+  ASV <- otu_table(phyloseq_obj)
+  ASV <- as.data.frame(ASV)
+  TAX <- tax_table(phyloseq_obj)
+  TAX <- as.data.frame(TAX)
+  if(nrow(TAX) == nrow(ASV)){
+    merged <- cbind(TAX, ASV)
+  } else {
+    merged <- cbind(TAX, as.data.frame(t(ASV)))
   }
-  else {
-    #counts of rownames.
-    type_counts <- df %>% dplyr::count(substr(rownames(df), 0, 1))
-
-    #names of unique row names using the first part of the sample name and splits by user input character.
-    type_names <- unique(sapply(strsplit(rownames(df)[1:NROW(df)], split = split_by), `[`, 1))
-  }
-
-  #Replaces underscores in sample type names to spaces and capitalizes first letter.
-  type_names <- stringr::str_to_title(stringr::str_replace(type_names, pattern = "_", replacement = " "))
-
-  #initiates sample type list with sample type counts
-  type_list <- as.list(as.vector(type_counts$n))
-
-  #gives names to each sample type
-  names(type_list) <- type_names
-
-  type_list
+  merged
 }
 
-#' Preparation for Heatmapping
+#' Get Top ASVs
 #'
-#' Takes a cleaned merged dataset from dadaset_clean() and prepares the dataset for heatmapping. Only one cutoff metric should be used at a time.
+#' A simple function to return the names of the top ASVs in a dataset.
 #'
-#' @param df dataset in merged format
-#' @param taxa_cutoff how many taxa to keep. Default is zero
-#' @param mean_ab_cutoff whether or not to apply a 1% mean abundance cutoff.
+#' @param df numeric ASV/OTU table.
+#' @param number numeric vector indicating how many top ASVs to return.
+#' @param ASVs_on_Rows boolean vector indicating whether ASVs in `df` are on rows (`TRUE`) or columns (`FALSE`)
 #'
-#' @return returns a dataset ready to input into a heatmapping function.
-#' @importFrom dplyr %>%
+#' @return character vector of the top ASVs/OTUs in a dataset.
 #' @export
 #'
 #' @examples
-#' preheat_top_10 <- heatmap_prep(merged_clean, taxa_cutoff = 10, mean_ab_cutoff = FALSE)
-#' preheat_mean_ab <- heatmap_prep(merged_clean, taxa_cutoff = 0, mean_ab_cutoff = TRUE)
-heatmap_prep <- function(df, taxa_cutoff = 0, mean_ab_cutoff = TRUE){
-  #does rank in order of abundance.
-
-  #Removes all taxa columns except for "Genus". Checks if "Species" column is included in taxa classification.
-  if("Species" %in% colnames(df)){
-    df_preheat <- df %>% dplyr::select(!c("X", "Kingdom", "Phylum", "Class", "Order", "Family", "Species"))
+get_top_ASVs <- function(df, number, ASVs_on_Rows = TRUE){
+  library(dplyr)
+  if(ASVs_on_Rows == FALSE){
+    df <- as.data.frame(t(df))
   }
-  else {
-    df_preheat <- df %>% dplyr::select(!c("X", "Kingdom", "Phylum", "Class", "Order", "Family"))
+  if(dim(df)[2] == 1){
+    df$dummy_col <- 0
   }
+  df <- df[order(rowSums(df), decreasing = TRUE),]
+  top_ASVs <- rownames(df) %>% head(., number)
+  top_ASVs
+}
 
-  #transposes dataset
-  dt_preheat <- t(df_preheat)
-
-  #Converts values in Genus Row to column names
-  colnames(dt_preheat) <- unlist(dt_preheat[row.names(dt_preheat)=='Genus',])
-
-  #Removes Genus row and converts dataset to dataframe
-  dt_preheat <- as.data.frame(dt_preheat[!row.names(dt_preheat)=='Genus',])
-
-  #Makes sure that values are of type numeric and not factors. Then converts dataset to dataframe
+#' Heatmap Preparation
+#'
+#' This function takes an ASV/OTU table, taxonomy table, and metadata file, and prepares the ASVs for heatmapping.
+#' In particular it groups all other ASVs not selected into an Other column.
+#' There are multiple options for ASV selection: `mean_ab_by_type`, `mean_ab_cutoff`, `select_ASVs`, and `taxa_cutoff`.
+#' Only one option can be used at a time. They will be evaluated in the order listed so if `mean_ab_by_type` is passed a character vector, no other selection methods will be used.
+#'
+#' @param df an ASV/OTU table dataframe with ASVs/OTUs as rows and samples on columns. Row/Column names should be ASV number/Sample name respectively.
+#' @param df_tax an associated taxonomy table dataframe. Needs tomatch ASVs on rows in `df`
+#' @param df_meta an associated metadata dataframe with optional column for ASV selection based on type column
+#' @param class_col character vector of column in `df_tax` to designate which level of classification to name ASVs
+#' @param taxa_cutoff integer number of top ASVs to select. Default is 0. Only used if `!= 0`.
+#' @param mean_ab_cutoff boolean vector to select ASVs greater than 1% relative abundance across the entire dataset. Default is `TRUE`
+#' @param select_ASVs character vector of ASVs to select by ASV number, which should be rownames in `df_tax`.
+#' @param mean_ab_by_type no default. If passed a character vector of a column in `df_meta`, will be used to split samples into types before calculating mean percent relative abundance.
+#'
+#' @return A dataframe with columns named by ASV numbers and selected taxonomic classification and samples on rows.
+#' @export
+#'
+#' @examples preheat <- heatmap_prep(df = my_df, df_tax = my_tax, df_meta = my_meta, class_col = "Genus", taxa_cutoff = 0, mean_ab_cutoff = TRUE)
+heatmap_prep <- function (df, df_tax, df_meta, class_col, taxa_cutoff = 0, mean_ab_cutoff = TRUE, select_ASVs, mean_ab_by_type){
+  library(dplyr)
+  n2 <- c()
+  dt_preheat <- t(df)
+  dt_preheat <- as.data.frame(dt_preheat)
+  colnames(dt_preheat) <- paste(colnames(dt_preheat),  unlist(df_tax[[class_col]]), sep = "-")
   dt_preheat1 <- as.data.frame(sapply(dt_preheat, function(x) as.numeric(as.character(x))))
-
-  #row names lost in the process are added back from the original dataset.
+  if(dim(dt_preheat1)[2] == 1){
+    dt_preheat1 <- as.data.frame(t(dt_preheat1))
+  }
   rownames(dt_preheat1) <- rownames(dt_preheat)
-
-  #column names lost in the process are added back from the original dataset but also made unique.
   colnames(dt_preheat1) <- make.unique(colnames(dt_preheat1))
-
-  #Now, with a dataset with unique genera as columns and samples on rows abundance cutoffs or taxa cutoffs are applied.
-  if (mean_ab_cutoff == TRUE) {
-    #read counts are divided by total read counts per sample (per row sums).
-    data.prop <- dt_preheat1/rowSums(dt_preheat1)
-
-    #calculates the average fraction of sample that each taxa, which are on columns, make up.
-    mean_abundance <- apply(data.prop, 2, mean)
-
-    #stores the column names(taxa) for which mean abundance is less than 1%.
-    n2 <- names(which(mean_abundance < 0.01))
-
-    #removes taxa less than 1% average relative abundance
-    dt_preheat1.ab <- dt_preheat1[, -which(names(data.prop) %in% n2)]
-
-    #Samples are eliminated which no longer have taxa abundance.
+  if(!missing(mean_ab_by_type)){
+    for(i in 1:length(unique(df_meta[[mean_ab_by_type]]))){
+      data.prop <- dt_preheat1/rowSums(dt_preheat1)
+      data.prop_sub <- data.prop %>% filter(df_meta[[mean_ab_by_type]] == unique(df_meta[[mean_ab_by_type]])[i])
+      means <- apply(data.prop_sub, 2, mean)
+      n2 <- append(n2, names(which(means > 0.01)))
+    }
+    dt_preheat1.ab <- dt_preheat1[, which(names(data.prop) %in% n2)]
+    preheat_other <- dt_preheat1[, -which(names(data.prop) %in% n2)]
+    dt_preheat1.ab$Other <- rowSums(preheat_other)
     dt_preheat1.ab <- row_sample_elim(dt_preheat1.ab, thresh = 1)
-
     return(dt_preheat1.ab)
   }
-
-  #if a non-zero taxa cutoff is given, proceeds to rank taxa based on total read count across all samples.
+  if (mean_ab_cutoff == TRUE) {
+    data.prop <- dt_preheat1/rowSums(dt_preheat1)
+    mean_abundance <- apply(data.prop, 2, mean)
+    n2 <- names(which(mean_abundance < 0.01))
+    dt_preheat1.ab <- dt_preheat1[, -which(names(data.prop) %in% n2)]
+    preheat_other <- dt_preheat1[, which(names(data.prop) %in% n2)]
+    dt_preheat1.ab$Other <- rowSums(preheat_other)
+    dt_preheat1.ab <- row_sample_elim(dt_preheat1.ab, thresh = 1)
+    return(dt_preheat1.ab)
+  }
+  if (!missing(select_ASVs)){
+    dt_preheat1.ab <- dt_preheat1 %>% select_if(rownames(df_tax) %in% select_ASVs)
+    others <- dt_preheat1 %>% select_if(rownames(df_tax) %ni% select_ASVs)
+    dt_preheat1.ab$Other <- rowSums(others)
+    return(dt_preheat1.ab)
+  }
   if (taxa_cutoff != 0) {
-
-    #stores ranks of column sums and splits ties based on which count came up first.
     dt_rank <- rank(-colSums(dt_preheat1), ties.method = "first")
-
-    #subsets taxa based on their rank.
-    dt_preheat1 <- as.data.frame(t(subset(t(dt_preheat1), dt_rank <= taxa_cutoff)))
-
-    #checks to make sure all samples still have a read count of at least one. Employs function "row_sample_elim()"
+    dt_preheat1 <- as.data.frame(t(subset(t(dt_preheat1),
+                                          dt_rank <= taxa_cutoff)))
     dt_preheat1 <- row_sample_elim(dt_preheat1, thresh = 1)
-
     return(dt_preheat1)
   }
 }
 
-
 #' Heatmapping
 #'
-#' Generates a heatmap of a merged dataset after processing with heatmap_prep()
+#' Produces a heatmap which is grouped by a column within the associated metadata dataframe. Heatmap takes into account ASVs not plotted in 'Other' category.
+#' ASV/OTUs are grouped on rows by k-means clustering.
 #'
-#' @param df dataset after running heatmap_prep()
-#' @param scalecolor color theme to be used for the heatmap. Options are "red" or "blue"
-#' @param types sample types as a named list.
-#' @param title title for heatmap
-#' @param by_percent logical. If true, taxa in heatmap are shown as percentage of samples. If false, taxa are shown as absolute abundances.
+#' @param df a dataframe with samples on rows and ASV/OTUs on columns. Both should be row/column names respectively.
+#' @param df_meta an associated metadata dataframe with samples on rows and a column to group samples.
+#' @param types_col character vector of column name within metadata dataframe to group samples by.
+#' @param scalecolor currently only one color scale. "red-blue" is the default.
+#' @param title character vector for the title of the heatmap if desired.
+#' @param by_percent boolean vector to determine if heatmap should be visualized based on percent relative abundance.
+#' @param show_other boolean vector. If only a subset of ASVs/OTUs are to be plotted, should ASVs/OTUs grouped into "other" catogory by `heatmap_prep()` be plotted as well?
 #'
-#' @return returns a heatmap generated from library(ComplexHeatmap)
+#' @return a heatmap clustered by sample type designated by column within metadata dataframe.
 #' @export
 #'
-#' @examples
-#' types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-#' preheat_top_10 <- heatmap_prep(merged_clean, taxa_cutoff = 10, mean_ab_cutoff = FALSE)
-#' heatmapping(df = preheat_top_10, scalecolor = "blue", types = types_list, title = "Example Heatmap")
-heatmapping <- function(df, scalecolor, types, title, by_percent = TRUE) {
-
+#' @examples heatmapping3(df = my_ASV_table, df_meta = my_metadata, types_col = "CST", scalecolor = "red-blue", title = "Example Heatmap", by_percent = TRUE, show_other = FALSE)
+heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, by_percent = TRUE, show_other = FALSE) {
+  library(dplyr)
+  library(grid)
+  library(circlize)
   #converts dataset to proportionalized dataset (taxa percentage of sample).
   data.prop <- (df/rowSums(df))*100
-  #create color palette with options for red or blue.
-  if(scalecolor == "red"){
-    finalscale <- c("lightyellow", "red")
-  }
-  else if(scalecolor == "blue"){
-    #alternate black and blue color palette
-    finalscale <- c("#000033", "#66CCFF")
-  }
-  #instantiate factortypes and repeat type names based on values in named list types.
-  factortypes <- c()
-  for(i in 1:length(types)){
-    factortypes <- as.factor(append(factortypes, values = rep(names(types)[i], types[[i]])))
+  if(show_other == FALSE){
+    data.prop <- data.prop %>% select_if(colnames(.) != "Other")
+    df <- df %>% select_if(colnames(.) != "Other")
   }
 
+  #instantiate factortypes and repeat type names based on values in named list types.
+  factortypes <- as.factor(df_meta[[types_col]])
+
   if(by_percent == TRUE) {
-    #for percentage heatmap
-    ht = ComplexHeatmap::Heatmap(matrix = as.matrix(t(data.prop)), column_title = names(types), show_column_dend = FALSE, col = finalscale, name = "Percentage of Sample", cluster_columns = FALSE, row_names_side = "left", row_dend_side = "right", row_dend_width = grid::unit(1.5, "cm"), column_split = factortypes, border = TRUE)
+    if(scalecolor == "red-blue"){
+      col_fun <- colorRamp2(c(0, 25, 75, 100), c("white", "blue", "yellow", "red"))
+    }
+
+    #for plotting based on percent relative abundance
+    ht = ComplexHeatmap::Heatmap(matrix = as.matrix(t(data.prop)),
+                                 column_title = sort(unique(df_meta[[types_col]])),
+                                 show_column_names = FALSE,
+                                 show_column_dend = FALSE,
+                                 col = col_fun,
+                                 name = "Percentage of Sample",
+                                 cluster_columns = TRUE,
+                                 cluster_column_slices = FALSE,
+                                 row_names_gp = gpar(fontface = 3),
+                                 row_names_side = "left",
+                                 row_dend_side = "right",
+                                 row_dend_width = grid::unit(1.5, "cm"),
+                                 heatmap_legend_param = list(at =c(0, 50, 100), labels = c(0, 50, 100)),
+                                 column_split = factortypes,
+                                 border = TRUE)
+
     ComplexHeatmap::draw(ht, column_title = title)
   }
   else{
-    #for absolute abundance
-    ht = ComplexHeatmap::Heatmap(matrix = as.matrix(t(df)), column_title = names(types), show_column_dend = FALSE, col = finalscale, name = "Absolute Reads", cluster_columns = FALSE, row_names_side = "left", row_dend_side = "right", row_dend_width = grid::unit(1.5, "cm"), column_split = factortypes, border = TRUE)
+    if(scalecolor == "red-blue"){
+      mx <- max(df)
+      col_fun <- colorRamp2(c(0, (mx*1/4), (mx*3/4), mx), c("white", "blue", "yellow", "red"))
+    }
+    #for plotting based on total reads
+    ht = ComplexHeatmap::Heatmap(matrix = as.matrix(t(df)),
+                                 column_title = sort(unique(df_meta[[types_col]])),
+                                 show_column_names = FALSE,
+                                 show_column_dend = FALSE,
+                                 col = col_fun,
+                                 name = "Total Reads",
+                                 cluster_columns = TRUE,
+                                 cluster_column_slices = FALSE,
+                                 row_names_gp = gpar(fontface = 3),
+                                 row_names_side = "left",
+                                 row_dend_side = "right",
+                                 row_dend_width = grid::unit(1.5, "cm"),
+                                 column_split = factortypes,
+                                 border = TRUE)
     ComplexHeatmap::draw(ht, column_title = title)
   }
 }
 
-#' Remove Control Taxa
+#' Jensen-Shannon Sample Clustering by Group
 #'
-#' Removes taxa found in negative control samples.
+#' Calculates the average Jensen-Shannon Divergence within sample groups. Can be used to determine degree of similarity.
 #'
-#' @param df merged and cleaned dataset to be worked on
-#' @param control_sample_columns numeric indices of negative control columns.
+#' @param df an ASV/OTU table with samples as column names and ASV/OTUs as row names. The entire dataframe should be ASV/OTU counts, not taxonomy.
+#' @param meta an associated metadata file which is ordered by the order of samples in the ASV/OTU table, and which has a column to group samples by.
+#' @param Grouping_Col character vector of the column name by which to group by.
 #'
-#' @return returns a dataset without taxa found in negative controls.
+#' @return A dataframe with group names, and mean Jensen-Shannon divergences.
 #' @export
 #'
 #' @examples
-#' merged_no_control_taxa <- neg_taxa_remove(merged_clean, control_sample_columns = 37:77)
-neg_taxa_remove <- function(df, control_sample_columns) {
+JS_group_div <- function(df, meta, Grouping_Col){
+  library(philentropy)
+  JSD_means <- c()
+  unique_dups <- unique(meta[[Grouping_Col]][duplicated(meta[[Grouping_Col]])])
+  #needs to be iterative.
+  grepl_result <- grepl(pattern = paste0("^", unique_dups[[1]], "$"), meta[[Grouping_Col]])
+  #be able to isolate each group.
+  for(i in 2:length(unique_dups)){
+    grepl_result <- append(grepl_result, grepl(pattern = paste0("^", unique_dups[[i]], "$"), meta[[Grouping_Col]]))
+  }
+  for (i in 1:length(unique_dups)){
+    df_group <- df[grepl_result[(1+(dim(df)[1]*(i-1))):(dim(df)[1]+(dim(df)[1]*(i-1)))],1:ncol(df)]
+    JSD_mat <- JSD(as.matrix(df_group), test.na = FALSE, unit = "log", est.prob = "empirical")
+    if(length(dim(JSD_mat)[2]) == 1){
+      col_len <- dim(JSD_mat)[2]
+      skip_TF <- c(rep(c(FALSE, rep(TRUE, col_len)), col_len-1), FALSE)
+      JSD_vec <- as.vector(JSD_mat)
+      JSD_vec <- JSD_vec[skip_TF]
+    } else{
+      JSD_vec <- JSD_mat
+    }
+    JSD_means <- append(JSD_means, mean(JSD_vec))
+  }
+  JSD_out <- data.frame(Group = unique_dups, Means = JSD_means)
+  JSD_out
+}
 
-  #selects for numeric columns only
-  df_num <- dplyr::select_if(df, is.numeric)
-  #selects control sample columns
-  dt <- data.table::as.data.table(df)
-  dt_controls <- dt[,control_sample_columns, with = FALSE]
-  df_no_control_taxa <- subset(df, !(rowSums(dt_controls) >= 1))
-  df_control_taxa <- subset(df, (rowSums(dt_controls) >= 1))
-  list("No Control Taxa" = df_no_control_taxa, "Control Taxa" = df_control_taxa)
+#allows "not in" syntax
+'%ni%' <- Negate('%in%')
+
+#' Phyloseqize
+#'
+#' Convert data in R to a phyloseq object
+#'
+#' @param merged_df a numeric dataframe of ASV sample counts. Can include taxonomy as well. `merged_df` and `tax_df` row names should be identical.
+#' @param tax_df optional, if taxonomy is not included in `merged_df` include taxonomy table. For best results, create a taxonomy data frame with ASV row names and taxonomic levels as column names. Then convert to a matrix to use as `tax_df`.
+#' @param taxa_as_rows boolean vector indicating whether ASVs are on rows or on columns. Default is `TRUE`
+#' @param keep_ASV_nums boolean vector indicating whether to keep row names of ASV/OTU table.
+#'
+#' @return a phyloseq object with ASV/OTU count data and associated taxonomy.
+#' @export
+#'
+#' @examples phy <- phyloseqize(merged_df = merged, tax_df = tax, taxa_as_rows = TRUE, keep_ASV_nums = TRUE)
+phyloseqize <- function(merged_df, tax_df, taxa_as_rows = TRUE, keep_ASV_nums = TRUE) {
+  library(phyloseq)
+  library(dplyr)
+  if(sum(sapply(merged_df, is.character)) == 8){
+    pre_otu <- as.data.frame(merged_df[,9:ncol(merged_df)])
+  }
+  if(!missing(tax_df)){
+    pre_otu <- merged_df
+  }
+  if(keep_ASV_nums == FALSE){
+    rownames(pre_otu) <- paste0("ASV", 1:nrow(pre_otu))
+  }
+
+  OTU <- otu_table(pre_otu, taxa_are_rows = taxa_as_rows)
+
+  if(sum(sapply(merged_df, is.character)) == 8){
+    pre_tax <- as.data.frame(merged_df[,1:8])
+  } else {
+    pre_tax <- tax_df
+  }
+  if(keep_ASV_nums == FALSE){
+    rownames(pre_tax) <- paste0("ASV", 1:nrow(pre_tax))
+  }
+  pre_tax <- as.matrix(pre_tax)
+  TAX <- tax_table(pre_tax)
+
+  phy_object <- phyloseq(OTU, TAX)
+  phy_object
+}
+
+#' Top ASVs Above Cutoff
+#'
+#' Determines ASVs above a certain cutoff and returns taxonomy and abundance data.
+#'
+#' @param ASV numeric dataframe with ASVs on rows and samples on columns.
+#' @param TAX taxonomy matching ASV/OTU dataset with taxa on rows.
+#' @param META a metadata dataframe associated with samples on rows
+#' @param cutoff percent relative abundance cutoff in decimal form above which ASVs will be listed.
+#' @param top integer of ASVs above cutoff to return
+#' @param ASVs_on_Rows boolean vector indicating if ASVs are on rows in `ASV`
+#' @param study character vector name of study/title.
+#' @param subject_col character vector of column name in `META` to group samples by.
+#' @param subjects character vector of groups within `subject_col` to evaluate.
+#'
+#' @return a dataframe with ASV name, abundance in dataset, genus and species classifications, and exact sequence.
+#' @export
+#'
+#' @examples
+top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TRUE, study, subject_col, subjects){
+  library(dplyr)
+  ASVs_Greater_than <- c()
+  if(ASVs_on_Rows == TRUE){
+    ASV <- as.data.frame(t(ASV))
+  }
+  if(!missing(subject_col)){
+    for (i in 1:length(subjects)){
+      ASV_subject <- as.data.frame(ASV) %>% filter(META[[subject_col]] == subjects[i])
+      ASV_colsums <- colSums(ASV_subject)
+      ASV_colsums_pct <- ASV_colsums/sum(ASV_colsums)
+      ASV_cutoff <- ASV_colsums_pct[ASV_colsums_pct > cutoff]
+      ASVs_Greater_than <- append(ASVs_Greater_than, ASV_cutoff)
+      if(missing(top)){
+        top <- length(ASVs_Greater_than)
+      }
+    }
+  }
+  if(missing(subject_col)){
+    ASV_colsums <- colSums(ASV)
+    ASV_colsums_pct <- ASV_colsums/sum(ASV_colsums)
+    ASV_cutoff <- ASV_colsums_pct[ASV_colsums_pct > cutoff]
+    ASVs_Greater_than <- append(ASVs_Greater_than, ASV_cutoff)
+    if(missing(top)){
+      top <- length(ASVs_Greater_than)
+    }
+    ASVs_Greater_than <- ASVs_Greater_than %>% sort(., decreasing = TRUE) %>% head(., top)
+  }
+
+  df <- data.frame(ASV = names(ASVs_Greater_than), Rel_Abund = unlist(ASVs_Greater_than))
+  TAX_filt <- TAX %>% filter(rownames(.) %in% names(ASVs_Greater_than)) %>% select(c("X", "Genus", "Species"))
+  TAX_filt$ASV <- rownames(TAX_filt)
+  df_merged <- merge(df, TAX_filt, by = "ASV")
+
+  if(dim(df_merged)[1] != top){
+    current_rows <- dim(df_merged)[1]
+    missing_rows <- (top - current_rows)
+    for(i in 1:missing_rows){
+      df_merged <- rbind(df_merged, data.frame(ASV = NA, Rel_Abund = 0, X = NA, Genus = NA, Species = NA))
+    }
+  }
+
+  df_merged <- cbind(df_merged, data.frame(Study = rep(study, nrow(df_merged))))
+  df_merged <- df_merged[order(df_merged$Rel_Abund, decreasing = TRUE),]
+  df_merged
+}
+
+#' Weighted Average Genus Labels
+#'
+#' Plots weighted average genus labels over a beta diversity plot generated by `beta_div()`.
+#'
+#' @param Plot_object object returned from `beta_div()`
+#' @param ASV_table numeric ASV_table dataframe used to produce beta diversity plot. ASVs can be on rows or columns but should be indicated with `ASVs_on_rows`
+#' @param TAX_table dataframe of taxonomy matching ASVs in `ASV_table`. Taxa should be on rows.
+#' @param ASVs_to_plot a character vector of ASV numbers to plot
+#' @param Tax_col chracter vector of column name in `TAX_table` to use for labels if `ASV_with_Genus` is set to `FALSE`
+#' @param ASV_with_Genus a boolean vector to determine if ASV numbers should also be plotted along with genus classifications of ASVs.
+#' @param ASVs_on_rows a boolean vector indicating if ASVs are on rows in `ASV_table`
+#' @param color a character vector of color to plot points.
+#' @param Greater_than_1per optional boolean vector. If `TRUE`, calculates ASVs to plot based on a cutoff of greater than 1% mean relative abundance.
+#' @param invert_x optional boolean vector indicating whether to invert points over y-axis. Default is FALSE.
+#' @param invert_y optional boolean vector indicating whether to invert points over x-axis. Default is FALSE
+#'
+#' @return Does not return an object, only adds points and labels to a current beta diversity plot.
+#' @export
+#'
+#' @examples
+WA_labels <- function(Plot_object, ASV_table, TAX_table, ASVs_to_plot, Tax_col, ASV_with_Genus = TRUE, ASVs_on_rows = TRUE, color, Greater_than_1per = FALSE, invert_x = FALSE, invert_y = FALSE){
+  library(vegan)
+  library(dplyr)
+  if(ASVs_on_rows == TRUE){
+    ASV_table <- t(ASV_table)
+  }
+
+  if(Greater_than_1per == TRUE){
+    ASV_df <- t(ASV_table)
+    ASV_rel <- ASV_df/colSums(ASV_df)
+    mean_abundance <- rowMeans(ASV_rel)
+    ASV_names <- names(which(mean_abundance > 0.01))
+    ASVs_to_plot <- ASV_names
+  }
+
+
+  WAscores <- wascores(x = Plot_object$vectors, w = ASV_table)
+  WAscores_df <- as.data.frame(WAscores) %>% select(1:2)
+  if(invert_x == TRUE){
+    WAscores_df[,1] <- WAscores_df[,1]*-1
+  }
+  if(invert_y == TRUE){
+    WAscores_df[,2] <- WAscores_df[,2]*-1
+  }
+  WAscores_select <- WAscores_df %>% filter(rownames(.) %in% ASVs_to_plot)
+  TAX_select <- TAX_table %>% filter(rownames(.) %in% ASVs_to_plot)
+  if(ASV_with_Genus == TRUE){
+    WAscores_select$labels <- paste(rownames(TAX_select), TAX_select$Genus, sep = "-")
+  } else {
+    WAscores_select$labels <- make.unique(TAX_select[[Tax_col]])
+  }
+  text(WAscores_select[,1:2], labels = WAscores_select$labels, col = "grey50", pos = 4, font = 3)
+  points(WAscores_select[,1:2], pch = 18, col = color)
+}
+
+#' Unclassified Replace
+#'
+#' Auxillary function to `dadaset_clean()`. Used in `dadaset_clean()` to replace NA's with next highest taxonomy.
+#'
+#' @param Col_upper dataframe column corresponding to higher taxonomic rank.
+#' @param Col_lower dataframe column corresponding to lower taxonomic rank.
+#' @param ...
+#'
+#' @return modified lower taxonomic rank
+#' @export
+#'
+#' @examples
+unclassified_replace <- function(Col_upper, Col_lower, ...) {
+  #If cell in lower level is NA, makes replacement, otherwise it leaves the cell alone.
+  ifelse(is.na(Col_lower) == TRUE,
+         Col_lower <- Col_upper,
+         Col_lower <- Col_lower)
 }
 
 #' Taxa Prevalence Determination
@@ -693,47 +1037,4 @@ prev_write_xlsx <- function(objects, sheetnames, wb_name = "Prevalence") {
     print(paste0("File: ", wb_name, ".xlsx ", "created!"))
   }
 
-}
-
-#' Eliminate Samples in Rows
-#'
-#' Checks samples to verify that they have at least a certain number of reads left. Those that don't pass are eliminated.
-#'
-#' @param df dataset of type data frame with samples on rows and taxa in columns.
-#' @param thresh Read threshold. Default is 1 i.e. samples with no reads are eliminated.
-#'
-#' @return returns a dataframe in which all samples remaining have reads.
-#' @export
-#'
-#' @examples
-#' merged_preheat_pass <- row_sample_elim(preheat_ab, thresh = 1)
-row_sample_elim <- function(df,thresh = 1) {
-  #Calculates row sums for data frame assuming samples are on rows.
-  df$rowsums <- rowSums(df)
-  #subsets data frame to samples below threshold
-  elim <- df[df$rowsums<thresh,]
-  #subsets data frame to samples above or equal to threshold
-  df <- df[df$rowsums>=thresh,]
-  #removes the rowsums column added in the beginning.
-  df <- df[,-ncol(df)]
-  cat("Samples that had less than ", thresh, "reads left:", row.names(elim))
-  df
-}
-
-#' Replace Unclassified Genus
-#'
-#' This function is used in dadaset_clean to replace NA's with "{Family} Unclassified"
-#'
-#' @param Family Family column of merged dataset
-#' @param Genus Genus column of merged dataset
-#' @param ... For additional arugments
-#'
-#' @return Returns Genus column with replaced NA's
-#' @export
-unclassified_replace <- function(Family, Genus, ...) {
-  #This function is used in dadaset_clean to replace NA's with "{Family} Unclassified"
-  #If cell in Genus is NA, makes replacement, otherwise it leaves the cell alone.
-  ifelse(is.na(Genus) == TRUE,
-         Genus <- glue::glue("{Family} Unclassified"),
-         Genus <- Genus)
 }
