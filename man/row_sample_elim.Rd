@@ -18,5 +18,5 @@ returns a dataframe in which all samples remaining have reads.
 Checks samples to verify that they have at least a certain number of reads left. Those that don't pass are eliminated.
 }
 \examples{
-merged_preheat_pass <- row_sample_elim(preheat_ab, thresh = 1)
+Theis_preheat_pass <- row_sample_elim(Theis_preheat_ab, thresh = 1)
 }

@@ -2,25 +2,31 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{decontam_histo_prev_plots}
 \alias{decontam_histo_prev_plots}
-\title{Generate Decontam Histogram and Prevalence Plots}
+\title{Generate DECONTAM Histogram and Prevalence Plots}
 \usage{
 decontam_histo_prev_plots(physeq, thresh = 0.5, study_name)
 }
 \arguments{
 \item{physeq}{phyloseq object with OTU, TAX, and SAM components}
 
-\item{thresh}{Decontam score threshold. Default is 0.5}
+\item{thresh}{DECONTAM score threshold. Default is 0.5}
 
-\item{study_name}{name of the study where the dataset is from.}
+\item{study_name}{character vector name of the study/title for plot.}
 }
 \value{
-returns histogram and prevalence plots.
+returns a list object of the histogram and prevalence plots.
 }
 \description{
-To be used on a Phyloseq object to generate a histogram of Decontam scores and a prevalence plot.
+To be used on a Phyloseq object to generate a histogram of DECONTAM scores and a prevalence plot.
 }
 \examples{
-decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
-decontam_histo_prev_plots(pre_decontam, thresh = 0.5, study_name = "Study Name")
+Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+Theis_META_order$Type == "Technical Control" ~ "control")
+DECO_prep <- decontam_prep(df = Theis_merged_clean,
+meta = Theis_META_order,
+type = "Deco_type",
+sample_col = "Run")
+decontam_plots <- decontam_histo_prev_plots(physeq = DECO_prep,
+thresh = 0.1,
+study_name = "Theis")
 }

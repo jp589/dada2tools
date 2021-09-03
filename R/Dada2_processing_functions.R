@@ -1,3 +1,4 @@
+if(getRversion() >= "2.15.1")  utils::globalVariables(c("."))
 
 #' Agglomeration
 #'
@@ -9,14 +10,17 @@
 #'
 #' @return a dataframe with merged ASV counts and agglomerated taxonomy as rownames.
 #' @export
+#' @importFrom magrittr %>%
 #'
 #' @examples
+#' Theis_ASV <- Theis_merged_clean[,9:ncol(Theis_merged_clean)]
+#' Theis_TAX <- Theis_merged_clean[,1:8]
+#' Theis_agg <- agglomerate(df = Theis_ASV, df_tax = Theis_TAX, agg_class = "Genus")
 agglomerate <- function(df, df_tax, agg_class){
-  library(dplyr)
   df_final <- c()
   class_list <- unique(df_tax[[agg_class]])
   for(i in 1:length(class_list)){
-    df_sub <- df %>% filter(df_tax[[agg_class]] == class_list[i])
+    df_sub <- df %>% dplyr::filter(df_tax[[agg_class]] == class_list[i])
     df_sums <- as.data.frame(t(data.frame(CS = colSums(df_sub))))
     rownames(df_sums)[1] <- unique(df_tax[[agg_class]])[i]
     df_final <- rbind(df_final, df_sums)
@@ -36,10 +40,29 @@ agglomerate <- function(df, df_tax, agg_class){
 #'
 #' @return dataframe ready for `barplotting()`
 #' @export
+#' @importFrom rlang .data
+#' @importFrom magrittr %>%
 #'
 #' @examples
+#' library(dplyr)
+#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
+#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
+#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
+#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+#' df_tax = Theis_agg_tax_P,
+#' class_col = "Genus",
+#' df_meta = Theis_META_P,
+#' select_ASVs = Theis5,
+#' mean_ab_cutoff = FALSE)
+#' Theis_prebar <- barplot_prep(df = Theis_preheatbar,
+#' df_meta = Theis_META_P,
+#' type_col = "Del_GA",
+#' study = "Theis",
+#' DECONTAM_dataset = FALSE)
 barplot_prep <- function (df, df_meta, type_col, study, DECONTAM_dataset = FALSE) {
-  library(dplyr)
   prebar <- c()
   df1 <- as.data.frame(t(df))
   df_ordered <- df1[df1 %>% rowSums(.) %>% sort(., decreasing = TRUE) %>% names(.),]
@@ -48,7 +71,7 @@ barplot_prep <- function (df, df_meta, type_col, study, DECONTAM_dataset = FALSE
     uniques <- uniques[c(match("Technical Control", uniques), which(uniques %ni% "Technical Control"))]
   }
   for(i in 1:length(uniques)){
-    df_subset <- df_ordered %>% select_if(df_meta[[type_col]] == uniques[i])
+    df_subset <- df_ordered %>% dplyr::select_if(df_meta[[type_col]] == uniques[i])
     prebar <- as.data.frame(rbind(prebar, data.frame(
       ASVs = factor(levels = rev(rownames(df_subset)), x = rownames(df_subset)),
       Type = factor(levels = uniques, x = rep(uniques[i], dim(df_subset)[1])),
@@ -74,11 +97,33 @@ barplot_prep <- function (df, df_meta, type_col, study, DECONTAM_dataset = FALSE
 #'
 #' @return returns a plot object.
 #' @export
+#' @importFrom rlang .data
+#' @importFrom magrittr %>%
+#' @import ggplot2
 #'
 #' @examples
-#'
-#' types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-#' prebar <- barplot_prep(preheat_ab, sample_types = types_list)
+#' library(dplyr)
+#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
+#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
+#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
+#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+#' df_tax = Theis_agg_tax_P,
+#' class_col = "Genus",
+#' df_meta = Theis_META_P,
+#' select_ASVs = Theis5,
+#' mean_ab_cutoff = FALSE)
+#' Theis_prebar <- barplot_prep(df = Theis_preheatbar,
+#' df_meta = Theis_META_P,
+#' type_col = "Del_GA",
+#' study = "Theis",
+#' DECONTAM_dataset = FALSE)
+#' Theis_barplot <- barplotting(df = Theis_prebar,
+#' study = "Theis",
+#' legend_cols = 2,
+#' leg_title = "Genera")
 barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
   #this will plot the barplot in one section of the screen and the legend in another.
 
@@ -86,11 +131,11 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
     #ensures dataset is a dataframe if not already.
     df <- as.data.frame(df)
     deco_df <- as.data.frame(deco_df)
-    totalsD <- deco_df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
-    totals <- df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
+    totalsD <- deco_df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
+    totals <- df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
 
     All_combined <- rbind(df, deco_df)
-    abundance_totals <- All_combined %>% group_by(ASVs) %>% summarise(sum = sum(Total_Reads))
+    abundance_totals <- All_combined %>% dplyr::group_by(.data$ASVs) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
     abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
     abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
     #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
@@ -101,23 +146,24 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
 
 
     #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
-    Leg_vals <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(Color); names(Leg_vals) <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(ASVs)
-    for_legend <- ggplot(data = All_combined, aes(x=Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + theme(legend.text = element_text(face = "italic")) + ylab("Percent Relative Abundance") +  scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggtitle(paste("For Legend", "by type"))
-    Legend_alone <- get_legend(for_legend)
+    Leg_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$Color); names(Leg_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$ASVs)
+    for_legend <- ggplot2::ggplot(data = All_combined, aes(x=.data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::theme(legend.text = element_text(face = "italic")) + ggplot2::ylab("Percent Relative Abundance") + ggplot2::scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggplot2::ggtitle(paste("For Legend", "by type"))
+    Legend_alone <- cowplot::get_legend(for_legend)
 
-    Rel_vals <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(Color); names(Rel_vals) <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(ASVs)
-    Relative <- ggplot(data = df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      scale_fill_manual(values = Rel_vals)
+    Rel_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$Color); names(Rel_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$ASVs)
+    Relative <- ggplot2::ggplot(data = df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      ggplot2::scale_fill_manual(values = Rel_vals)
 
-    RelD_vals <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(Color); names(RelD_vals) <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(ASVs)
-    RelativeD <- ggplot(data = deco_df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      scale_fill_manual(values = RelD_vals)
-    plot <- plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
+    RelD_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% deco_df$ASVs) %>% dplyr::pull(.data$Color); names(RelD_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% deco_df$ASVs) %>% dplyr::pull(.data$ASVs)
+    RelativeD <- ggplot2::ggplot(data = deco_df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      ggplot2::scale_fill_manual(values = RelD_vals)
+    plot <- cowplot::plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
   } else {
 
     df <- as.data.frame(df)
-    totals <- df %>% group_by(Type) %>% summarise(sum = sum(Total_Reads))
-    abundance_totals <- All_combined %>% group_by(ASVs) %>% summarise(sum = sum(Total_Reads))
+    All_combined <- df
+    totals <- df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
+    abundance_totals <- All_combined %>% dplyr::group_by(.data$ASVs) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
     abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
     abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
     #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
@@ -128,18 +174,15 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
 
 
     #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
-    Leg_vals <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(Color); names(Leg_vals) <- abundance_totals %>% filter(ASVs %in% All_combined$ASVs) %>% pull(ASVs)
-    for_legend <- ggplot(data = All_combined, aes(x=Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + theme(legend.text = element_text(face = "italic")) + ylab("Percent Relative Abundance") +  scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggtitle(paste("For Legend", "by type"))
-    Legend_alone <- get_legend(for_legend)
+    Leg_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$Color); names(Leg_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$ASVs)
+    for_legend <- ggplot2::ggplot(data = All_combined, aes(x=.data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::theme(legend.text = element_text(face = "italic")) + ggplot2::ylab("Percent Relative Abundance") +  ggplot2::scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggplot2::ggtitle(paste("For Legend", "by type"))
+    Legend_alone <- cowplot::get_legend(for_legend)
 
-    Rel_vals <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(Color); names(Rel_vals) <- abundance_totals %>% filter(ASVs %in% df$ASVs) %>% pull(ASVs)
-    Relative <- ggplot(data = df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      scale_fill_manual(values = Rel_vals)
+    Rel_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$Color); names(Rel_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$ASVs)
+    Relative <- ggplot2::ggplot(data = df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+      ggplot2::scale_fill_manual(values = Rel_vals)
 
-    RelD_vals <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(Color); names(RelD_vals) <- abundance_totals %>% filter(ASVs %in% deco_df$ASVs) %>% pull(ASVs)
-    RelativeD <- ggplot(data = deco_df, aes(x= Type, y = Relative_Reads, fill = ASVs)) + geom_bar(stat="identity") + ylab("Percent Relative Abundance") + labs(x= "") + theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      scale_fill_manual(values = RelD_vals)
-    plot <- plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
+    plot <- cowplot::plot_grid(Relative, Legend_alone, labels = c("A", ""), ncol = 1, nrow = 2, rel_heights = c(1, .75), vjust = 1)
   }
 
   return(plot)
@@ -171,14 +214,23 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
 #'
 #' @return plots beta diversity PCoA plot and returns a dataframe containing eigenvalues and vectors for all possible plotting axes.
 #' @export
+#' @importFrom magrittr %>%
 #'
 #' @examples
-beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, invert_y = FALSE, ASP = 1, Legend_Yspace = 1, rel = FALSE, red_blue = FALSE, all_O = FALSE, taxa_on_rows = TRUE, highlight, nonhgrey = FALSE, type2, legendyn = TRUE, size, transp, PCH_vec) {
+#' Beta_plot <- beta_div(df = Theis_rare_ASV,
+#' df_meta = Theis_rare_META,
+#' type = "Type",
+#' study = "Example Plot",
+#' all_O = TRUE,
+#' taxa_on_rows = TRUE,
+#' size = 2,
+#' legendyn = FALSE)
+beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, invert_y = FALSE, ASP = 1, Legend_Yspace = 1, rel = FALSE, red_blue = FALSE, all_O = FALSE, taxa_on_rows = TRUE, highlight, nonhgrey = FALSE, type2, legendyn = TRUE, size, transp) {
   #records current palette
-  pal <- palette()
+  pal <- grDevices::palette()
 
   #subsets data frame to only columns that are numeric.
-  dt_numeric <- df %>% select_if(., is.numeric)
+  dt_numeric <- df %>% dplyr::select_if(., is.numeric)
 
   #converts total counts to relative abundances.
   if(rel == TRUE) {
@@ -224,7 +276,7 @@ beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, inve
     col_vec <- color_rep(colr, X, highlight, highlight_bool, nonhgrey)
   }
   if(!missing(transp)){
-    transparent_colr <- palette.colors(n = length(unique(df_meta[[type]])), palette = "R4", alpha = transp)
+    transparent_colr <- grDevices::palette.colors(n = length(unique(df_meta[[type]])), palette = "R4", alpha = transp)
     transp_vec <- color_rep(transparent_colr, X, nonhgrey = FALSE)
   }
 
@@ -246,7 +298,7 @@ beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, inve
     }
   }
   #resets palette to original
-  palette(pal)
+  grDevices::palette(pal)
 
   df.pcoa
 }
@@ -265,19 +317,21 @@ beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, inve
 #' @export
 #'
 #' @examples
+#' Blast_results <- blaster(Theis_merged_clean$X[1:2], names = c("ASV1", "ASV2"), alignments = 5)
 blaster <- function(seqs, names, alignments = 1) {
   #store sequence data in fasta formatted object
   seqinr::write.fasta(sequences = as.list(seqs), names = names, file.out = "blaster.fasta")
   #Take fasta object and run it against 16S rRNA gene database.
-  system(paste0("blastn -query ", paste0(getwd(), "/blaster.fasta -num_alignments "), alignments, " -num_threads 3 -out ", paste0(getwd(), "/Blasted.tsv -outfmt \"6 qseqid evalue bitscore staxids pident qcovs stitle\" -db "), paste0(getwd(), "/16S_ribosomal_RNA")))
-  results <- read.table(file = "Blasted.tsv", sep = "\t", stringsAsFactors = FALSE)
+  system(paste0("blastn -query ", paste0(here::here(), "/blaster.fasta -num_alignments "), alignments, " -num_threads 3 -out ", paste0(here::here(), "/Blasted.tsv -outfmt \"6 qseqid evalue bitscore staxids pident qcovs stitle\" -db "), paste0(here::here(), "/dada2tools/extdata/16S_ribosomal_RNA")))
+  results <- utils::read.table(file = "Blasted.tsv", sep = "\t", stringsAsFactors = FALSE)
   colnames(results) <- c("Query Seq ID", "Expect value", "Bitscore", "Subject TAX ID", "Percent Identical", "Query Coverage", "Subject Title")
+  unlink(c("blaster.fasta", "Blasted.tsv"))
   results
 }
 
 #' Color Replication
 #'
-#' Ancillary function to `beta_div()` which allows for modification of plotted colors. In particular, it allows for certain points to be highlighted while others are colored grey or left blank.
+#' Auxillary function to `beta_div()` which allows for modification of plotted colors. In particular, it allows for certain points to be highlighted while others are colored grey or left blank.
 #'
 #'
 #' @param colors color palette as character vector of colors to be used.
@@ -287,9 +341,7 @@ blaster <- function(seqs, names, alignments = 1) {
 #' @param nonhgrey boolean vector indicating whether non-highlighted samples should be grey (`TRUE`) or left blank (`FALSE`)
 #'
 #' @return a new character vector containing the new colors by sample.
-#' @export
 #'
-#' @examples
 color_rep <- function(colors, full_set, highlight, highlight_bool, nonhgrey){
   uniques <- unique(full_set)
   color_vector <- c()
@@ -308,7 +360,36 @@ color_rep <- function(colors, full_set, highlight, highlight_bool, nonhgrey){
   color_vector
 }
 
-
+#' Convert Merged Dataset
+#'
+#' Converts a merged dataset taxonomy columns to character and ASV/OTU counts to numeric to ensure that all columns are of the proper type.
+#'
+#' @param merged Column bound taxonomy with ASVs/OTUs on rows to ASV/OTU counts with samples on columns.
+#' @param char_range numeric vector giving column range for taxonomy. Default is `1:8`
+#' @param num_range numeric vector giving range for ASV/OTU count table. Default is all other columns to the right of taxonomy.
+#'
+#' @return merged dataset with taxonomy columns as character and ASV/OTU counts per sample as numeric.
+#' @export
+#'
+#' @examples
+#' Theis_converted <- convert_merged(merged = Theis_merged, char_range = 1:8)
+convert_merged <- function(merged, char_range = 1:8, num_range){
+  if(missing(num_range)){
+    num_range <- (max(char_range)+1):ncol(merged)
+  }
+  for(i in 1:ncol(merged)){
+    if(i %in% char_range & is.factor(merged[,i])){
+      merged[,i] <- as.character(merged[,i])
+    }
+    if(i %in% num_range & is.factor(merged[,i])){
+      merged[,i] <- as.numeric(as.character(merged[,i]))
+    }
+    if(i %in% num_range & is.character(merged[,i])){
+      merged[,i] <- as.numeric(merged[,i])
+    }
+  }
+  merged
+}
 
 #' Dadaset Clean
 #'
@@ -319,8 +400,11 @@ color_rep <- function(colors, full_set, highlight, highlight_bool, nonhgrey){
 #'
 #' @return a merged dataframe which is free of unclassified taxonomy at the phylum level, and non-bacterial mitochondrial, and chloroplast sequences.
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #'
 #' @examples
+#' Theis_merged_clean <- dadaset_clean(df = Theis_merged, read_thresh = 100)
 dadaset_clean <- function(df, read_thresh = 100) {
   Kingdom <- Phylum <- Family <- Order <- NULL
 
@@ -351,20 +435,14 @@ dadaset_clean <- function(df, read_thresh = 100) {
   #records how many taxa are left after Chloroplast elimination.
   nrow_taxa_Chl <- NROW(df2)
 
-  df2_numeric <- df2 %>% select_if(., is.numeric)
+  df2_numeric <- df2 %>% dplyr::select_if(., is.numeric)
 
   #dplyr way of removing samples with less than read_thresh reads.
   #first calculate sums of all columns
   df2_num_pass <- df2_numeric %>% dplyr::select_if(function(col) sum(col) >= read_thresh)
   elim <- df2_numeric %>% dplyr::select_if(function(col) sum(col) < read_thresh)
   elim_names <- names(elim)
-  cleaned <- cbind(df2 %>% select_if(., is.character), df2_num_pass)
-
-  #Replacement of NA's in Genus column with "{Family} unclassified". Calls function unclassified_replace.
-  #cleaned$Genus <- cleaned %>% pmap(unclassified_replace2)
-
-  #Ensures Genus column is of type character.
-  #cleaned$Genus <- as.character(cleaned$Genus)
+  cleaned <- cbind(df2 %>% dplyr::select_if(., is.character), df2_num_pass)
 
   for(i in 2:6){
     cleaned[,(i + 1)] <- purrr::map2_chr(cleaned[,i], cleaned[,(i+1)], unclassified_replace)
@@ -394,8 +472,12 @@ dadaset_clean <- function(df, read_thresh = 100) {
 #' @export
 #'
 #' @examples
-#' decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-#' pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
+#' Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+#' Theis_META_order$Type == "Technical Control" ~ "control")
+#' DECO_prep <- decontam_prep(df = Theis_merged_clean,
+#' meta = Theis_META_order,
+#' type = "Deco_type",
+#' sample_col = "Run")
 decontam_prep <- function(df, meta, type, sample_col){
 
   #ensures data is of type dataframe
@@ -429,9 +511,15 @@ decontam_prep <- function(df, meta, type, sample_col){
 #' @export
 #'
 #' @examples
-#' decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-#' pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
-#' decontam_histo_prev_plots(pre_decontam, thresh = 0.5, study_name = "Study Name")
+#' Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+#' Theis_META_order$Type == "Technical Control" ~ "control")
+#' DECO_prep <- decontam_prep(df = Theis_merged_clean,
+#' meta = Theis_META_order,
+#' type = "Deco_type",
+#' sample_col = "Run")
+#' decontam_plots <- decontam_histo_prev_plots(physeq = DECO_prep,
+#' thresh = 0.1,
+#' study_name = "Theis")
 decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
 
   p <- prev <- physeq.neg <- physeq.pos <- contaminant <- NULL
@@ -497,10 +585,11 @@ decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
 #' @export
 #'
 #' @examples
-#' decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-#' pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
-#' decontaminated <- decontaminate(merged_clean, pre_decontam, thresh = 0.1)
-#' true_taxa_0.1 <- decontaminated$TrueTaxa; contaminants_0.1 <- decontaminated$Contaminants
+#' Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+#' Theis_META_order$Type == "Technical Control" ~ "control")
+#' DECO_prep <- decontam_prep(df = Theis_merged_clean,
+#' meta = Theis_META_order, type = "Deco_type", sample_col = "Run")
+#' Theis_decontaminated <- decontaminate(df = Theis_merged_clean, physeq = DECO_prep, thresh = 0.1)
 decontaminate <- function(df, physeq, thresh) {
 
   #creates new column of type logical to determine which samples are controls (TRUE) or samples (FALSE) based on data in Type column.
@@ -527,11 +616,13 @@ decontaminate <- function(df, physeq, thresh) {
 #' @return a merged taxonomy and ASV/OTU table as a data frame.
 #' @export
 #'
-#' @examples merged_dephy <- dephy(phyloseq_obj = phy)
+#' @examples
+#' phy <- phyloseqize(merged_df = Theis_merged_clean, taxa_as_rows = TRUE, keep_ASV_nums = TRUE)
+#' merged_dephy <- dephy(phyloseq_obj = phy)
 dephy <- function(phyloseq_obj){
-  ASV <- otu_table(phyloseq_obj)
+  ASV <- phyloseq::otu_table(phyloseq_obj)
   ASV <- as.data.frame(ASV)
-  TAX <- tax_table(phyloseq_obj)
+  TAX <- phyloseq::tax_table(phyloseq_obj)
   TAX <- as.data.frame(TAX)
   if(nrow(TAX) == nrow(ASV)){
     merged <- cbind(TAX, ASV)
@@ -551,10 +642,12 @@ dephy <- function(phyloseq_obj){
 #'
 #' @return character vector of the top ASVs/OTUs in a dataset.
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #'
 #' @examples
+#' Theis_topASVs <- get_top_ASVs(df = Theis_rare_ASV, number = 10, ASVs_on_Rows = TRUE)
 get_top_ASVs <- function(df, number, ASVs_on_Rows = TRUE){
-  library(dplyr)
   if(ASVs_on_Rows == FALSE){
     df <- as.data.frame(t(df))
   }
@@ -562,7 +655,7 @@ get_top_ASVs <- function(df, number, ASVs_on_Rows = TRUE){
     df$dummy_col <- 0
   }
   df <- df[order(rowSums(df), decreasing = TRUE),]
-  top_ASVs <- rownames(df) %>% head(., number)
+  top_ASVs <- rownames(df) %>% utils::head(., number)
   top_ASVs
 }
 
@@ -584,10 +677,23 @@ get_top_ASVs <- function(df, number, ASVs_on_Rows = TRUE){
 #'
 #' @return A dataframe with columns named by ASV numbers and selected taxonomic classification and samples on rows.
 #' @export
+#' @importFrom magrittr %>%
 #'
-#' @examples preheat <- heatmap_prep(df = my_df, df_tax = my_tax, df_meta = my_meta, class_col = "Genus", taxa_cutoff = 0, mean_ab_cutoff = TRUE)
+#' @examples
+#' library(dplyr)
+#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
+#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
+#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
+#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+#' df_tax = Theis_agg_tax_P,
+#' class_col = "Genus",
+#' df_meta = Theis_META_P,
+#' select_ASVs = Theis5,
+#' mean_ab_cutoff = FALSE)
 heatmap_prep <- function (df, df_tax, df_meta, class_col, taxa_cutoff = 0, mean_ab_cutoff = TRUE, select_ASVs, mean_ab_by_type){
-  library(dplyr)
   n2 <- c()
   dt_preheat <- t(df)
   dt_preheat <- as.data.frame(dt_preheat)
@@ -601,7 +707,7 @@ heatmap_prep <- function (df, df_tax, df_meta, class_col, taxa_cutoff = 0, mean_
   if(!missing(mean_ab_by_type)){
     for(i in 1:length(unique(df_meta[[mean_ab_by_type]]))){
       data.prop <- dt_preheat1/rowSums(dt_preheat1)
-      data.prop_sub <- data.prop %>% filter(df_meta[[mean_ab_by_type]] == unique(df_meta[[mean_ab_by_type]])[i])
+      data.prop_sub <- data.prop %>% dplyr::filter(df_meta[[mean_ab_by_type]] == unique(df_meta[[mean_ab_by_type]])[i])
       means <- apply(data.prop_sub, 2, mean)
       n2 <- append(n2, names(which(means > 0.01)))
     }
@@ -622,8 +728,8 @@ heatmap_prep <- function (df, df_tax, df_meta, class_col, taxa_cutoff = 0, mean_
     return(dt_preheat1.ab)
   }
   if (!missing(select_ASVs)){
-    dt_preheat1.ab <- dt_preheat1 %>% select_if(rownames(df_tax) %in% select_ASVs)
-    others <- dt_preheat1 %>% select_if(rownames(df_tax) %ni% select_ASVs)
+    dt_preheat1.ab <- dt_preheat1 %>% dplyr::select_if(rownames(df_tax) %in% select_ASVs)
+    others <- dt_preheat1 %>% dplyr::select_if(rownames(df_tax) %ni% select_ASVs)
     dt_preheat1.ab$Other <- rowSums(others)
     return(dt_preheat1.ab)
   }
@@ -651,17 +757,29 @@ heatmap_prep <- function (df, df_tax, df_meta, class_col, taxa_cutoff = 0, mean_
 #'
 #' @return a heatmap clustered by sample type designated by column within metadata dataframe.
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #'
-#' @examples heatmapping3(df = my_ASV_table, df_meta = my_metadata, types_col = "CST", scalecolor = "red-blue", title = "Example Heatmap", by_percent = TRUE, show_other = FALSE)
+#' @examples
+#' library(dplyr)
+#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
+#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
+#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
+#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+#' df_tax = Theis_agg_tax_P,
+#' class_col = "Genus",
+#' df_meta = Theis_META_P,
+#' select_ASVs = Theis5,
+#' mean_ab_cutoff = FALSE)
 heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, by_percent = TRUE, show_other = FALSE) {
-  library(dplyr)
-  library(grid)
-  library(circlize)
   #converts dataset to proportionalized dataset (taxa percentage of sample).
   data.prop <- (df/rowSums(df))*100
   if(show_other == FALSE){
-    data.prop <- data.prop %>% select_if(colnames(.) != "Other")
-    df <- df %>% select_if(colnames(.) != "Other")
+    data.prop <- data.prop %>% dplyr::select_if(colnames(.) != "Other")
+    df <- df %>% dplyr::select_if(colnames(.) != "Other")
   }
 
   #instantiate factortypes and repeat type names based on values in named list types.
@@ -669,7 +787,7 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
 
   if(by_percent == TRUE) {
     if(scalecolor == "red-blue"){
-      col_fun <- colorRamp2(c(0, 25, 75, 100), c("white", "blue", "yellow", "red"))
+      col_fun <- circlize::colorRamp2(c(0, 25, 75, 100), c("white", "blue", "yellow", "red"))
     }
 
     #for plotting based on percent relative abundance
@@ -681,7 +799,7 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
                                  name = "Percentage of Sample",
                                  cluster_columns = TRUE,
                                  cluster_column_slices = FALSE,
-                                 row_names_gp = gpar(fontface = 3),
+                                 row_names_gp = grid::gpar(fontface = 3),
                                  row_names_side = "left",
                                  row_dend_side = "right",
                                  row_dend_width = grid::unit(1.5, "cm"),
@@ -694,7 +812,7 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
   else{
     if(scalecolor == "red-blue"){
       mx <- max(df)
-      col_fun <- colorRamp2(c(0, (mx*1/4), (mx*3/4), mx), c("white", "blue", "yellow", "red"))
+      col_fun <- circlize::colorRamp2(c(0, (mx*1/4), (mx*3/4), mx), c("white", "blue", "yellow", "red"))
     }
     #for plotting based on total reads
     ht = ComplexHeatmap::Heatmap(matrix = as.matrix(t(df)),
@@ -705,7 +823,7 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
                                  name = "Total Reads",
                                  cluster_columns = TRUE,
                                  cluster_column_slices = FALSE,
-                                 row_names_gp = gpar(fontface = 3),
+                                 row_names_gp = grid::gpar(fontface = 3),
                                  row_names_side = "left",
                                  row_dend_side = "right",
                                  row_dend_width = grid::unit(1.5, "cm"),
@@ -727,8 +845,10 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
 #' @export
 #'
 #' @examples
+#' JS_clusters <- JS_group_div(df = t(Theis_rare_ASV),
+#' meta = Theis_rare_META,
+#' Grouping_Col = "Type")
 JS_group_div <- function(df, meta, Grouping_Col){
-  library(philentropy)
   JSD_means <- c()
   unique_dups <- unique(meta[[Grouping_Col]][duplicated(meta[[Grouping_Col]])])
   #needs to be iterative.
@@ -739,7 +859,7 @@ JS_group_div <- function(df, meta, Grouping_Col){
   }
   for (i in 1:length(unique_dups)){
     df_group <- df[grepl_result[(1+(dim(df)[1]*(i-1))):(dim(df)[1]+(dim(df)[1]*(i-1)))],1:ncol(df)]
-    JSD_mat <- JSD(as.matrix(df_group), test.na = FALSE, unit = "log", est.prob = "empirical")
+    JSD_mat <- philentropy::JSD(as.matrix(df_group), test.na = FALSE, unit = "log", est.prob = "empirical")
     if(length(dim(JSD_mat)[2]) == 1){
       col_len <- dim(JSD_mat)[2]
       skip_TF <- c(rep(c(FALSE, rep(TRUE, col_len)), col_len-1), FALSE)
@@ -768,11 +888,11 @@ JS_group_div <- function(df, meta, Grouping_Col){
 #'
 #' @return a phyloseq object with ASV/OTU count data and associated taxonomy.
 #' @export
+#' @importFrom magrittr %>%
 #'
-#' @examples phy <- phyloseqize(merged_df = merged, tax_df = tax, taxa_as_rows = TRUE, keep_ASV_nums = TRUE)
+#' @examples
+#' phy <- phyloseqize(merged_df = Theis_merged_clean, taxa_as_rows = TRUE, keep_ASV_nums = TRUE)
 phyloseqize <- function(merged_df, tax_df, taxa_as_rows = TRUE, keep_ASV_nums = TRUE) {
-  library(phyloseq)
-  library(dplyr)
   if(sum(sapply(merged_df, is.character)) == 8){
     pre_otu <- as.data.frame(merged_df[,9:ncol(merged_df)])
   }
@@ -783,7 +903,7 @@ phyloseqize <- function(merged_df, tax_df, taxa_as_rows = TRUE, keep_ASV_nums = 
     rownames(pre_otu) <- paste0("ASV", 1:nrow(pre_otu))
   }
 
-  OTU <- otu_table(pre_otu, taxa_are_rows = taxa_as_rows)
+  OTU <- phyloseq::otu_table(pre_otu, taxa_are_rows = taxa_as_rows)
 
   if(sum(sapply(merged_df, is.character)) == 8){
     pre_tax <- as.data.frame(merged_df[,1:8])
@@ -794,10 +914,35 @@ phyloseqize <- function(merged_df, tax_df, taxa_as_rows = TRUE, keep_ASV_nums = 
     rownames(pre_tax) <- paste0("ASV", 1:nrow(pre_tax))
   }
   pre_tax <- as.matrix(pre_tax)
-  TAX <- tax_table(pre_tax)
+  TAX <- phyloseq::tax_table(pre_tax)
 
-  phy_object <- phyloseq(OTU, TAX)
+  phy_object <- phyloseq::phyloseq(OTU, TAX)
   phy_object
+}
+
+#' Eliminate Samples in Rows
+#'
+#' Checks samples to verify that they have at least a certain number of reads left. Those that don't pass are eliminated.
+#'
+#' @param df dataset of type data frame with samples on rows and taxa in columns.
+#' @param thresh Read threshold. Default is 1 i.e. samples with no reads are eliminated.
+#'
+#' @return returns a dataframe in which all samples remaining have reads.
+#' @export
+#'
+#' @examples
+#' Theis_preheat_pass <- row_sample_elim(Theis_preheat_ab, thresh = 1)
+row_sample_elim <- function(df,thresh = 1) {
+  #Calculates row sums for data frame assuming samples are on rows.
+  df$rowsums <- rowSums(df)
+  #subsets data frame to samples below threshold
+  elim <- df[df$rowsums<thresh,]
+  #subsets data frame to samples above or equal to threshold
+  df <- df[df$rowsums>=thresh,]
+  #removes the rowsums column added in the beginning.
+  df <- df[,-ncol(df)]
+  cat("Samples that had less than ", thresh, "reads left:", row.names(elim))
+  df
 }
 
 #' Top ASVs Above Cutoff
@@ -816,17 +961,24 @@ phyloseqize <- function(merged_df, tax_df, taxa_as_rows = TRUE, keep_ASV_nums = 
 #'
 #' @return a dataframe with ASV name, abundance in dataset, genus and species classifications, and exact sequence.
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #'
 #' @examples
+#' Theis_top5 <- top_ASVs_above_cutoff(ASV = Theis_rare_ASV,
+#' TAX = Theis_rare_TAX,
+#' cutoff = 0.01,
+#' top = 5,
+#' ASVs_on_Rows = TRUE,
+#' study = "Theis")
 top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TRUE, study, subject_col, subjects){
-  library(dplyr)
   ASVs_Greater_than <- c()
   if(ASVs_on_Rows == TRUE){
     ASV <- as.data.frame(t(ASV))
   }
   if(!missing(subject_col)){
     for (i in 1:length(subjects)){
-      ASV_subject <- as.data.frame(ASV) %>% filter(META[[subject_col]] == subjects[i])
+      ASV_subject <- as.data.frame(ASV) %>% dplyr::filter(META[[subject_col]] == subjects[i])
       ASV_colsums <- colSums(ASV_subject)
       ASV_colsums_pct <- ASV_colsums/sum(ASV_colsums)
       ASV_cutoff <- ASV_colsums_pct[ASV_colsums_pct > cutoff]
@@ -844,11 +996,11 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
     if(missing(top)){
       top <- length(ASVs_Greater_than)
     }
-    ASVs_Greater_than <- ASVs_Greater_than %>% sort(., decreasing = TRUE) %>% head(., top)
+    ASVs_Greater_than <- ASVs_Greater_than %>% sort(., decreasing = TRUE) %>% utils::head(., top)
   }
 
   df <- data.frame(ASV = names(ASVs_Greater_than), Rel_Abund = unlist(ASVs_Greater_than))
-  TAX_filt <- TAX %>% filter(rownames(.) %in% names(ASVs_Greater_than)) %>% select(c("X", "Genus", "Species"))
+  TAX_filt <- TAX %>% dplyr::filter(rownames(.) %in% names(ASVs_Greater_than)) %>% dplyr::select(c("X", "Genus", "Species"))
   TAX_filt$ASV <- rownames(TAX_filt)
   df_merged <- merge(df, TAX_filt, by = "ASV")
 
@@ -883,11 +1035,29 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
 #'
 #' @return Does not return an object, only adds points and labels to a current beta diversity plot.
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #'
 #' @examples
+#' Theis_topASVs <- get_top_ASVs(Theis_rare_ASV, number = 10)
+#' Theis_Beta_plot_PTCWA <- beta_div(df = Theis_rare_ASV,
+#' df_meta = Theis_rare_META,
+#' type = "Type",
+#' study = "Example Plot",
+#' all_O = TRUE,
+#' taxa_on_rows = TRUE,
+#' size = 2,
+#' legendyn = FALSE)
+#' WA_labels(Plot_object = Theis_Beta_plot_PTCWA,
+#' ASV_table = Theis_rare_ASV,
+#' TAX_table = Theis_rare_TAX,
+#' ASVs_on_rows = TRUE,
+#' ASV_with_Genus = FALSE,
+#' Tax_col = "Genus",
+#' color = "grey",
+#' Greater_than_1per = FALSE,
+#' ASVs_to_plot = Theis_topASVs)
 WA_labels <- function(Plot_object, ASV_table, TAX_table, ASVs_to_plot, Tax_col, ASV_with_Genus = TRUE, ASVs_on_rows = TRUE, color, Greater_than_1per = FALSE, invert_x = FALSE, invert_y = FALSE){
-  library(vegan)
-  library(dplyr)
   if(ASVs_on_rows == TRUE){
     ASV_table <- t(ASV_table)
   }
@@ -901,23 +1071,23 @@ WA_labels <- function(Plot_object, ASV_table, TAX_table, ASVs_to_plot, Tax_col, 
   }
 
 
-  WAscores <- wascores(x = Plot_object$vectors, w = ASV_table)
-  WAscores_df <- as.data.frame(WAscores) %>% select(1:2)
+  WAscores <- vegan::wascores(x = Plot_object$vectors, w = ASV_table)
+  WAscores_df <- as.data.frame(WAscores) %>% dplyr::select(1:2)
   if(invert_x == TRUE){
     WAscores_df[,1] <- WAscores_df[,1]*-1
   }
   if(invert_y == TRUE){
     WAscores_df[,2] <- WAscores_df[,2]*-1
   }
-  WAscores_select <- WAscores_df %>% filter(rownames(.) %in% ASVs_to_plot)
-  TAX_select <- TAX_table %>% filter(rownames(.) %in% ASVs_to_plot)
+  WAscores_select <- WAscores_df %>% dplyr::filter(rownames(.) %in% ASVs_to_plot)
+  TAX_select <- TAX_table %>% dplyr::filter(rownames(.) %in% ASVs_to_plot)
   if(ASV_with_Genus == TRUE){
     WAscores_select$labels <- paste(rownames(TAX_select), TAX_select$Genus, sep = "-")
   } else {
     WAscores_select$labels <- make.unique(TAX_select[[Tax_col]])
   }
-  text(WAscores_select[,1:2], labels = WAscores_select$labels, col = "grey50", pos = 4, font = 3)
-  points(WAscores_select[,1:2], pch = 18, col = color)
+  graphics::text(WAscores_select[,1:2], labels = WAscores_select$labels, col = "grey50", pos = 4, font = 3)
+  graphics::points(WAscores_select[,1:2], pch = 18, col = color)
 }
 
 #' Unclassified Replace
@@ -926,115 +1096,16 @@ WA_labels <- function(Plot_object, ASV_table, TAX_table, ASVs_to_plot, Tax_col, 
 #'
 #' @param Col_upper dataframe column corresponding to higher taxonomic rank.
 #' @param Col_lower dataframe column corresponding to lower taxonomic rank.
-#' @param ...
+#' @param ... left blank.
 #'
 #' @return modified lower taxonomic rank
-#' @export
 #'
 #' @examples
+#' Theis_merged$Genus <- dada2tools:::unclassified_replace(Col_upper = Theis_merged$Family,
+#' Col_lower = Theis_merged$Genus)
 unclassified_replace <- function(Col_upper, Col_lower, ...) {
   #If cell in lower level is NA, makes replacement, otherwise it leaves the cell alone.
   ifelse(is.na(Col_lower) == TRUE,
          Col_lower <- Col_upper,
          Col_lower <- Col_lower)
-}
-
-#' Taxa Prevalence Determination
-#'
-#' Determines taxa prevalence for a subset of a merged dataset.
-#'
-#' @param df merged_clean dataset or other dataset where taxa are on rows and samples are on columns.
-#' @param subset Logical. If true, must include lt_col and rt_col parameters.
-#' @param lt_col leftmost column of subset. Can be numeric or name
-#' @param rt_col rightmost column of subset. Can be numeric or name
-#'
-#' @return returns prevalence of taxa in descending order.
-#' @export
-#'
-#' @examples
-#' Taxa_Prev <- prevalence(merged_clean, subset = TRUE, lt_col = 9, rt_col = NCOL(merged_clean))
-prevalence <- function(df, subset = FALSE, lt_col, rt_col) {
-  prev <-NULL
-  #must have Genus column
-
-  #
-  ifelse(subset == TRUE, total <- (rt_col - lt_col), total <- sum(sapply(df, is.numeric)))
-
-  #converts data frame to data table.
-  dt <- data.table::as.data.table(df)
-  #subsets datatable to only columns of type numeric. Or numeric columns within specified bounds.
-  ifelse (subset == FALSE, dt_num <- dt[, sapply(dt, is.numeric), with = FALSE], dt_num <- dt %>% dplyr::select(lt_col:rt_col))
-
-  #rownames for subsetted dataset are taken from Genus column of original dataset.
-  rownames(dt_num) <- make.unique(dt$Genus)
-
-  #converting dataset to prevalence.
-  dt_prev <- sapply(dt_num, function(x) x/x)
-  dt_prev[is.nan(dt_prev)] <- 0
-  dt_prev <- as.data.frame(dt_prev)
-
-  #calculating prevalence of taxa in new prev column.
-  dt_prev$prev <- rowSums(dt_prev)
-  rownames(dt_prev) <- make.unique(dt$Genus)
-
-  #prevalence listed in descending order.
-  dt_ordered <- dt_prev %>% dplyr::arrange(dplyr::desc(prev))
-
-  #Stores reordered rownames in chr vector Prev_names
-  Prev_names <- rownames(dt_ordered)
-
-  #Takes prevalence calculated from row sums and stores it in data frame.
-  Prev_nums <- as.data.frame(dt_ordered$prev)
-
-  #Combines names with prevalence.
-  Prev <- cbind(Prev_names, Prev_nums, stringsAsFactors = FALSE)
-
-  #renames columns
-  colnames(Prev)[1:2] <- c("Taxa", paste("Prevalence out of", total))
-  Prev
-}
-
-#' Create Excel Prevalence Workbook
-#'
-#' Combines prevalence objects into different sheets of an excel workbook.
-#'
-#' @param objects Objects as a list i.e. list(prev_x, prev_y, prev_z)
-#' @param sheetnames Names for sheets of workbook i.e. c("Prev X", "Prev Y", "Prev Z")
-#' @param wb_name Workbook Name
-#'
-#' @return creates an excel workbook with all prevalence objects as their own sheet.
-#' @export
-#'
-#' @examples
-#' Prev_AC <- prevalence(merged_clean, subset = TRUE, lt_col = 9, rt_col = 36)
-#' Prev_C <- prevalence(merged_clean, subset = TRUE, lt_col = 37, rt_col = 77)
-#' Prev_V <- prevalence(merged_clean, subset = TRUE, lt_col = 78, rt_col = 106)
-#' Prevs <- list(Prev_AC, Prev_C, Prev_V)
-#' prev_write_xlsx(objects = Prevs, sheetnames = c("Prev AC", "Prev Ctrl", "Prev V"), wb_name = "Prev")
-prev_write_xlsx <- function(objects, sheetnames, wb_name = "Prevalence") {
-
-  #instantiates workbook
-  wb <- openxlsx::createWorkbook()
-
-  #for every Prevalence object adds a sheet and names it. Then the data is written to the newly created sheet with column names included.
-  for (i in 1:length(objects)) {
-    openxlsx::addWorksheet(wb = wb, sheetName = sheetnames[i])
-    openxlsx::writeDataTable(wb, sheet = sheetnames[i], as.data.frame(objects[i]), colNames = TRUE)
-  }
-  #Checks to see if file already exists with same name. If so, workbook will not save.
-  if(file.exists(paste0(wb_name, ".xlsx"))) {
-    #Will fail to write if xlsx with indicated wb_name already exists.
-    print(paste0("File: ", wb_name, ".xlsx ", "already exists. Please retry with a different wb_name."))
-    Failed <- TRUE
-  }
-  else {
-    Failed <- FALSE
-    #saves workbook
-    openxlsx::saveWorkbook(wb, paste0(wb_name, ".xlsx"), overwrite = FALSE)
-  }
-
-  if(file.exists(paste0(wb_name, ".xlsx")) && Failed == FALSE) {
-    print(paste0("File: ", wb_name, ".xlsx ", "created!"))
-  }
-
 }

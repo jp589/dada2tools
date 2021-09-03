@@ -2,22 +2,30 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{decontam_prep}
 \alias{decontam_prep}
-\title{Preparation for Decontam}
+\title{Preparation for DECONTAM}
 \usage{
-decontam_prep(df, type)
+decontam_prep(df, meta, type, sample_col)
 }
 \arguments{
-\item{df}{merged_clean dataset}
+\item{df}{merged_clean dataset with taxonomy and ASV table combined. ASVs should be on rows.}
 
-\item{type}{a named list where each sample is either "sample" or "control" (as in negative control).}
+\item{meta}{a metadata data frame with column \code{type}}
+
+\item{type}{the name of a column in \code{meta} where each sample is either "sample" or "control" (as in Technical control).}
+
+\item{sample_col}{character vector of column name in \code{meta} which indicates sample names. Also should match column names in merged dataset.}
 }
 \value{
 returns a phyloseq object which can then be used in decontam_histo_prev_plots()
 }
 \description{
-Prepares a merged_clean dataset that has been run through dadaset_clean() and col_reorder() for running Decontam.
+Prepares a merged_clean dataset that has been run through dadaset_clean() for processing with DECONTAM
 }
 \examples{
-decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
+Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+Theis_META_order$Type == "Technical Control" ~ "control")
+DECO_prep <- decontam_prep(df = Theis_merged_clean,
+meta = Theis_META_order,
+type = "Deco_type",
+sample_col = "Run")
 }

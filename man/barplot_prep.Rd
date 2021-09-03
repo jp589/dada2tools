@@ -2,23 +2,44 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{barplot_prep}
 \alias{barplot_prep}
-\title{Preparation for Barplotting}
+\title{Barplot Preparation}
 \usage{
-barplot_prep(df, sample_types)
+barplot_prep(df, df_meta, type_col, study, DECONTAM_dataset = FALSE)
 }
 \arguments{
-\item{df}{dataframe with genera as columns and samples as rows.}
+\item{df}{numeric dataframe with ASVs on columns and samples on rows.}
 
-\item{sample_types}{named list where names are sample types in order, and values are number of samples per type.}
+\item{df_meta}{sample metadata with samples on rows.}
+
+\item{type_col}{character vector of column name in \code{df_meta} to be used for sample grouping}
+
+\item{study}{character vector of study name/title.}
+
+\item{DECONTAM_dataset}{boolean vector indicating whether dataset has been processed through DECONTAM.}
 }
 \value{
-Produces a taxa by sample type dataframe.
+dataframe ready for \code{barplotting()}
 }
 \description{
-Given a dataframe with genera as columns and samples as rows, this will produce a taxa by sample type dataframe.
+Prepares data for barplotting. Recommended to use result from \code{heatmap_prep()} for \code{df}.
 }
 \examples{
-
-types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-prebar <- barplot_prep(preheat_ab, sample_types = types_list)
+library(dplyr)
+Theis_META_P <- Theis_rare_META \%>\% filter(Type == "Placenta")
+Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+Theis_agg_P <- Theis_agg \%>\% select_if(colnames(.) \%in\% Theis_META_P$Run)
+Theis_agg_tax_P <- Theis_agg_tax \%>\% filter(rownames(.) \%in\% rownames(Theis_agg_P))
+Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+df_tax = Theis_agg_tax_P,
+class_col = "Genus",
+df_meta = Theis_META_P,
+select_ASVs = Theis5,
+mean_ab_cutoff = FALSE)
+Theis_prebar <- barplot_prep(df = Theis_preheatbar,
+df_meta = Theis_META_P,
+type_col = "Del_GA",
+study = "Theis",
+DECONTAM_dataset = FALSE)
 }

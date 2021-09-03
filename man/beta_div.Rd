@@ -2,40 +2,82 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{beta_div}
 \alias{beta_div}
-\title{PCoA plotting}
+\title{Beta Diversity Plotting}
 \usage{
 beta_div(
   df,
-  sample_types,
+  df_meta,
+  type,
   study,
-  inset = -0.4,
-  rt_margin = 9.1,
+  inset = 0,
   invert_x = FALSE,
-  invert_y = FALSE
+  invert_y = FALSE,
+  ASP = 1,
+  Legend_Yspace = 1,
+  rel = FALSE,
+  red_blue = FALSE,
+  all_O = FALSE,
+  taxa_on_rows = TRUE,
+  highlight,
+  nonhgrey = FALSE,
+  type2,
+  legendyn = TRUE,
+  size,
+  transp
 )
 }
 \arguments{
-\item{df}{a dataset that has been processed by dadaset_clean() and col_reorder()}
+\item{df}{merged data frame with taxonomy on rows.}
 
-\item{sample_types}{a named list of sample types with counts per sample types as values}
+\item{df_meta}{metadata dataframe with samples as rows}
 
-\item{study}{name of study from which dataset originated}
+\item{type}{character vector indicating \code{df_meta} column name of column for primary sample grouping (by color).}
 
-\item{inset}{alters the placement of the legend. -0.4 is the default.}
+\item{study}{character vector indicating dataset study name or title for plot.}
 
-\item{rt_margin}{adjusts the size of the right margin if needed to fit the legend.}
+\item{inset}{numeric vector designating horizontal position of legend on plot. Positive values move the legend left, negative values move it to the right. Default is 0}
 
-\item{invert_x}{flips plot over the y-axis.}
+\item{invert_x}{boolean vector indicating whether plot should be inverted over the y-axis.}
 
-\item{invert_y}{flips plot over the x-axis.}
+\item{invert_y}{boolean vector indicating whether plot should be inverted over the x-axis.}
+
+\item{ASP}{numeric vector. Aspect ratio for the plot. Default is 1}
+
+\item{Legend_Yspace}{numeric vector which modifies the spacing between legend entries. Default is 1, Range between 0 and 1.}
+
+\item{rel}{boolean vector indicating whether data in \code{df} is already converted to percent relative abundances or not. Default is \code{FALSE}}
+
+\item{red_blue}{boolean vector indicating whether red/blue color palette is desired. Default is \code{FALSE}}
+
+\item{all_O}{boolean vector indicating whether all points should be plotted as open circles. Defualt is \code{FALSE}}
+
+\item{taxa_on_rows}{boolean vector indicating whether ASVs/OTUs in \code{df} taxonomy are on rows or on columns. Default is \code{TRUE}}
+
+\item{highlight}{optional character vector of all samples to be colored normally}
+
+\item{nonhgrey}{optional boolean vector indicating whether non-highlighted samples should be grey (\code{TRUE}) or left blank (\code{FALSE})}
+
+\item{type2}{optional character vector of column name from \code{df_meta} to perform secondary grouping on dataset (by shape)}
+
+\item{legendyn}{boolean vector indicating whether to include legend in plot. Default is \code{TRUE}.}
+
+\item{size}{optional numeric vector indicating size of all points plotted.}
+
+\item{transp}{optional numeric vector indicating transparency of all points to be plotted. Range from 0 to 1.}
 }
 \value{
-returns a Bray-Curtis PCoA plot of sample types with a legend on the right.
+plots beta diversity PCoA plot and returns a dataframe containing eigenvalues and vectors for all possible plotting axes.
 }
 \description{
-Create a PCoA plot based on Bray-Curtis dissimilarity to map samples and visualize similarity.
+A beta diversity plotting function built in base R to make a PCoA plot of Bray-Curtis distances between samples.
 }
 \examples{
-types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-beta_div(merged_clean, sample_types = types_list, study = "Example Study")
+Beta_plot <- beta_div(df = Theis_rare_ASV,
+df_meta = Theis_rare_META,
+type = "Type",
+study = "Example Plot",
+all_O = TRUE,
+taxa_on_rows = TRUE,
+size = 2,
+legendyn = FALSE)
 }

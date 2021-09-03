@@ -11,17 +11,18 @@ decontaminate(df, physeq, thresh)
 
 \item{physeq}{phyloseq object created from running decontam_prep()}
 
-\item{thresh}{threshold chosen from looking at histogram and prevalence plots}
+\item{thresh}{numeric vector of threshold chosen based on histogram and prevalence plots.}
 }
 \value{
 gives a list of dataframes split into true taxa, contaminants, and the chosen threshold.
 }
 \description{
-Final function for using Decontam.
+Final function for using DECONTAM.
 }
 \examples{
-decontam_types <- list("sample" = 28, "control" = 41, "sample" = 29)
-pre_decontam <- decontam_prep(df = merged_clean, type = decontam_types)
-decontaminated <- decontaminate(merged_clean, pre_decontam, thresh = 0.1)
-true_taxa_0.1 <- decontaminated$TrueTaxa; contaminants_0.1 <- decontaminated$Contaminants
+Theis_META_order$Deco_type <- dplyr::case_when(Theis_META_order$Type == "Placenta" ~ "sample",
+Theis_META_order$Type == "Technical Control" ~ "control")
+DECO_prep <- decontam_prep(df = Theis_merged_clean,
+meta = Theis_META_order, type = "Deco_type", sample_col = "Run")
+Theis_decontaminated <- decontaminate(df = Theis_merged_clean, physeq = DECO_prep, thresh = 0.1)
 }

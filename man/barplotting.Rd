@@ -4,24 +4,46 @@
 \alias{barplotting}
 \title{Barplotting}
 \usage{
-barplotting(df, study, rt_mar = 10)
+barplotting(df, deco_df, study, legend_cols = 1, leg_title)
 }
 \arguments{
 \item{df}{dataframe prepared with barplot_prep()}
 
+\item{deco_df}{optional dataframe prepared with barplot_prep() but processed with DECONTAM}
+
 \item{study}{name of the study or origin of the data}
 
-\item{rt_mar}{adjustable right margin parameter. For when taxa names exceed space. Default is 10.}
+\item{legend_cols}{numeric vector of number of columns to split legend into.}
+
+\item{leg_title}{character vector to name legend.}
 }
 \value{
-returns a list of barplots.
+returns a plot object.
 }
 \description{
-Function used to create stacked barplots of absolute and relative reads of sample types.
+Function used to create stacked barplots of absolute and relative reads of sample types. Plots will be arranged so that after DECONTAM dataset is below regular version.
 }
 \examples{
-
-types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-prebar <- barplot_prep(preheat_ab, sample_types = types_list)
-barplotting(df = prebar, study = "Example", rt_mar = 18)
+library(dplyr)
+Theis_META_P <- Theis_rare_META \%>\% filter(Type == "Placenta")
+Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+Theis_agg_P <- Theis_agg \%>\% select_if(colnames(.) \%in\% Theis_META_P$Run)
+Theis_agg_tax_P <- Theis_agg_tax \%>\% filter(rownames(.) \%in\% rownames(Theis_agg_P))
+Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+df_tax = Theis_agg_tax_P,
+class_col = "Genus",
+df_meta = Theis_META_P,
+select_ASVs = Theis5,
+mean_ab_cutoff = FALSE)
+Theis_prebar <- barplot_prep(df = Theis_preheatbar,
+df_meta = Theis_META_P,
+type_col = "Del_GA",
+study = "Theis",
+DECONTAM_dataset = FALSE)
+Theis_barplot <- barplotting(df = Theis_prebar,
+study = "Theis",
+legend_cols = 2,
+leg_title = "Genera")
 }

@@ -2,20 +2,24 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{unclassified_replace}
 \alias{unclassified_replace}
-\title{Replace Unclassified Genus}
+\title{Unclassified Replace}
 \usage{
-unclassified_replace(Family, Genus, ...)
+unclassified_replace(Col_upper, Col_lower, ...)
 }
 \arguments{
-\item{Family}{Family column of merged dataset}
+\item{Col_upper}{dataframe column corresponding to higher taxonomic rank.}
 
-\item{Genus}{Genus column of merged dataset}
+\item{Col_lower}{dataframe column corresponding to lower taxonomic rank.}
 
-\item{...}{For additional arugments}
+\item{...}{left blank.}
 }
 \value{
-Returns Genus column with replaced NA's
+modified lower taxonomic rank
 }
 \description{
-This function is used in dadaset_clean to replace NA's with "{Family} Unclassified"
+Auxillary function to \code{dadaset_clean()}. Used in \code{dadaset_clean()} to replace NA's with next highest taxonomy.
+}
+\examples{
+Theis_merged$Genus <- dada2tools:::unclassified_replace(Col_upper = Theis_merged$Family,
+Col_lower = Theis_merged$Genus)
 }

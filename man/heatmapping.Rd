@@ -4,27 +4,50 @@
 \alias{heatmapping}
 \title{Heatmapping}
 \usage{
-heatmapping(df, scalecolor, types, title, by_percent = TRUE)
+heatmapping(
+  df,
+  df_meta,
+  types_col,
+  scalecolor = "red-blue",
+  title,
+  by_percent = TRUE,
+  show_other = FALSE
+)
 }
 \arguments{
-\item{df}{dataset after running heatmap_prep()}
+\item{df}{a dataframe with samples on rows and ASV/OTUs on columns. Both should be row/column names respectively.}
 
-\item{scalecolor}{color theme to be used for the heatmap. Options are "red" or "blue"}
+\item{df_meta}{an associated metadata dataframe with samples on rows and a column to group samples.}
 
-\item{types}{sample types as a named list.}
+\item{types_col}{character vector of column name within metadata dataframe to group samples by.}
 
-\item{title}{title for heatmap}
+\item{scalecolor}{currently only one color scale. "red-blue" is the default.}
 
-\item{by_percent}{logical. If true, taxa in heatmap are shown as percentage of samples. If false, taxa are shown as absolute abundances.}
+\item{title}{character vector for the title of the heatmap if desired.}
+
+\item{by_percent}{boolean vector to determine if heatmap should be visualized based on percent relative abundance.}
+
+\item{show_other}{boolean vector. If only a subset of ASVs/OTUs are to be plotted, should ASVs/OTUs grouped into "other" catogory by \code{heatmap_prep()} be plotted as well?}
 }
 \value{
-returns a heatmap generated from library(ComplexHeatmap)
+a heatmap clustered by sample type designated by column within metadata dataframe.
 }
 \description{
-Generates a heatmap of a merged dataset after processing with heatmap_prep()
+Produces a heatmap which is grouped by a column within the associated metadata dataframe. Heatmap takes into account ASVs not plotted in 'Other' category.
+ASV/OTUs are grouped on rows by k-means clustering.
 }
 \examples{
-types_list <- list("Amnion-Chorion" = 28, "Control" = 41, "Villous Tree" = 29)
-preheat_top_10 <- heatmap_prep(merged_clean, taxa_cutoff = 10, mean_ab_cutoff = FALSE)
-heatmapping(df = preheat_top_10, scalecolor = "blue", types = types_list, title = "Example Heatmap")
+library(dplyr)
+Theis_META_P <- Theis_rare_META \%>\% filter(Type == "Placenta")
+Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+Theis_agg_P <- Theis_agg \%>\% select_if(colnames(.) \%in\% Theis_META_P$Run)
+Theis_agg_tax_P <- Theis_agg_tax \%>\% filter(rownames(.) \%in\% rownames(Theis_agg_P))
+Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+df_tax = Theis_agg_tax_P,
+class_col = "Genus",
+df_meta = Theis_META_P,
+select_ASVs = Theis5,
+mean_ab_cutoff = FALSE)
 }

@@ -2,24 +2,57 @@
 % Please edit documentation in R/Dada2_processing_functions.R
 \name{heatmap_prep}
 \alias{heatmap_prep}
-\title{Preparation for Heatmapping}
+\title{Heatmap Preparation}
 \usage{
-heatmap_prep(df, taxa_cutoff = 0, mean_ab_cutoff = TRUE)
+heatmap_prep(
+  df,
+  df_tax,
+  df_meta,
+  class_col,
+  taxa_cutoff = 0,
+  mean_ab_cutoff = TRUE,
+  select_ASVs,
+  mean_ab_by_type
+)
 }
 \arguments{
-\item{df}{dataset in merged format}
+\item{df}{an ASV/OTU table dataframe with ASVs/OTUs as rows and samples on columns. Row/Column names should be ASV number/Sample name respectively.}
 
-\item{taxa_cutoff}{how many taxa to keep. Default is zero}
+\item{df_tax}{an associated taxonomy table dataframe. Needs tomatch ASVs on rows in \code{df}}
 
-\item{mean_ab_cutoff}{whether or not to apply a 1\% mean abundance cutoff.}
+\item{df_meta}{an associated metadata dataframe with optional column for ASV selection based on type column}
+
+\item{class_col}{character vector of column in \code{df_tax} to designate which level of classification to name ASVs}
+
+\item{taxa_cutoff}{integer number of top ASVs to select. Default is 0. Only used if \verb{!= 0}.}
+
+\item{mean_ab_cutoff}{boolean vector to select ASVs greater than 1\% relative abundance across the entire dataset. Default is \code{TRUE}}
+
+\item{select_ASVs}{character vector of ASVs to select by ASV number, which should be rownames in \code{df_tax}.}
+
+\item{mean_ab_by_type}{no default. If passed a character vector of a column in \code{df_meta}, will be used to split samples into types before calculating mean percent relative abundance.}
 }
 \value{
-returns a dataset ready to input into a heatmapping function.
+A dataframe with columns named by ASV numbers and selected taxonomic classification and samples on rows.
 }
 \description{
-Takes a cleaned merged dataset from dadaset_clean() and prepares the dataset for heatmapping. Only one cutoff metric should be used at a time.
+This function takes an ASV/OTU table, taxonomy table, and metadata file, and prepares the ASVs for heatmapping.
+In particular it groups all other ASVs not selected into an Other column.
+There are multiple options for ASV selection: \code{mean_ab_by_type}, \code{mean_ab_cutoff}, \code{select_ASVs}, and \code{taxa_cutoff}.
+Only one option can be used at a time. They will be evaluated in the order listed so if \code{mean_ab_by_type} is passed a character vector, no other selection methods will be used.
 }
 \examples{
-preheat_top_10 <- heatmap_prep(merged_clean, taxa_cutoff = 10, mean_ab_cutoff = FALSE)
-preheat_mean_ab <- heatmap_prep(merged_clean, taxa_cutoff = 0, mean_ab_cutoff = TRUE)
+library(dplyr)
+Theis_META_P <- Theis_rare_META \%>\% filter(Type == "Placenta")
+Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
+Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
+Theis_agg_P <- Theis_agg \%>\% select_if(colnames(.) \%in\% Theis_META_P$Run)
+Theis_agg_tax_P <- Theis_agg_tax \%>\% filter(rownames(.) \%in\% rownames(Theis_agg_P))
+Theis5 <- get_top_ASVs(Theis_agg_P, 5)
+Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
+df_tax = Theis_agg_tax_P,
+class_col = "Genus",
+df_meta = Theis_META_P,
+select_ASVs = Theis5,
+mean_ab_cutoff = FALSE)
 }
