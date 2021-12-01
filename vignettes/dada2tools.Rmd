@@ -29,11 +29,8 @@ library(ecodist)
 library(RPushbullet)
 library(magrittr)
 library(pdftools)
-library(philentropy)
 library(ComplexHeatmap)
-library(grid)
 library(ggplot2)
-library(cowplot)
 library(purrr)
 library(knitr)
 library(flextable)
@@ -44,7 +41,7 @@ library(here)
 ```
 # Introduction to dada2tools
 
-This package was written for researchers using DADA2 for their 16s rRNA sequencing data analysis. It allows easy construction of PCoA plots, heatmaps, barplots, and more. This vignette walks the reader through each of the functions in the order that they should be run with detailed examples and helpful notes.
+This package was written for researchers using DADA2 for their 16s rRNA sequencing data analysis. It allows easy construction of PCoA plots, heatmaps, and more. This vignette walks the reader through each of the functions in the order that they should be run with detailed examples and helpful notes.
 
 
 # Contents
@@ -64,15 +61,12 @@ This package was written for researchers using DADA2 for their 16s rRNA sequenci
 ###    + [Preparation for Heatmapping](#Preparation)
 ###    + [Plotting Heatmaps](#Plotting)
 ###    + [Agglomeration](#Agglomeration)
-## 7. [Barplotting](#Barplotting)
-###    + [Preparation for Barplotting](#Barprep)
-###    + [Plotting Barplots](#Barplot)
-## 8. [DECONTAM](#Decontam)
+## 7. [DECONTAM](#Decontam)
 ###    + [How to Set the Threshold](#How)
 ####      + [Prepare the Data Set](#Prepare)
 ####      + [Plot the Data](#Plot)
 ###    + [Run Decontam with Appropriate Threshold](#Run)
-## 9. [Finishing Up](#Finishing)
+## 8. [Finishing Up](#Finishing)
 
 ***
 ## Loading The Data Set {#Loading}
@@ -93,7 +87,7 @@ file.edit(ES)
 ```
 
 It will also have been saved as a `merged.csv` file which can be loaded with:
-```{r}
+```{r eval = FALSE}
 #read.csv("~/path/to/file.csv", stringsAsFactors = FALSE)
 Theis_merged <- read.csv(here("data-raw", "Theis_merged.csv"), stringsAsFactors = FALSE)
 ```
@@ -103,11 +97,11 @@ Theis_merged <- read.csv(here("data-raw", "Theis_merged.csv"), stringsAsFactors 
 It is always good practice to make sure that all numeric columns are actually of type numeric and all character columns are actually of type character. R will often convert characters and sometimes numbers to factors. This can be a real issue since the data looks exactly the same.
 
 ```{r}
-Theis_merged1 <- Theis_merged
+Theis_merged
 
 #We can use convert_merged() to ensure that all columns are of the proper type. `char_range` is the column range for taxonomy and num_range is the column range for the ASV/OTU table.
 
-Theis_merged1 <- convert_merged(merged = Theis_merged1, char_range = 1:8, num_range = 9:ncol(Theis_merged1))
+Theis_merged <- convert_merged(merged = Theis_merged, char_range = 1:8, num_range = 9:ncol(Theis_merged))
 ```
 
 ***
@@ -123,7 +117,7 @@ Now that the data set is loaded into the global environment we can begin to clea
 In order to work with the ASV/OTU table we need to prepare metadata to filter/select for specific samples. This metadata is often found on the NCBI SRA Run Selector in association with the files to be downloaded. The downloaded metadata file (SraRunTable.txt) can then be converted to .csv by simply changing the extension from .txt to .csv. However, in order to use the metadata we first need to organize and match it to the samples in the ASV/OTU table. Relevant columns for this study include `Run` and `Library.Name`. Be aware that relevant columns can vary from study to study.
 
 This can then be imported into R using:
-```{r}
+```{r, eval=FALSE}
 #read.csv("path/to/file.csv", stringsAsFactors = FALSE)
 Theis_META <- read.csv(here("data-raw", "Theis_SraRunTable.csv"), stringsAsFactors = FALSE)
 ```
@@ -149,8 +143,8 @@ for (i in 1:length(Theis_META$Run)){
 Theis_META_filt <- Theis_META %>% filter(LibrarySource == "METAGENOMIC") %>% select_if(colnames(.) %in% c("Run", "Library.Name", "Type", "GA", "Delivery"))
 
 #We will only be using a subset of the samples which were PCR amplified for a standard 30 cycles.
-Theis_ASV <- Theis_merged1 %>% select_if(., is.numeric) %>% select_if(colnames(.) %in% Theis_META_filt$Run)
-Theis_TAX <- Theis_merged1[, 1:8]
+Theis_ASV <- Theis_merged %>% select_if(., is.numeric) %>% select_if(colnames(.) %in% Theis_META_filt$Run)
+Theis_TAX <- Theis_merged[, 1:8]
 Theis_merged2 <- cbind(Theis_TAX, Theis_ASV)
 ```
 
@@ -337,7 +331,7 @@ heatmapping(df = Theis_preheat_top_ASVs, df_meta = Theis_rare_META, types_col = 
 
 ### Agglomeration {#Agglomeration}
 
-Before barplotting, data must be agglomerated at the genus level since barplots will be comparative across studies. This is done with `agglomerate()` on the normalized dataset.
+Agglomeration can be used to observe patterns in taxonomic data at many levels, not just the ASV level. Agglomeration is performed with `agglomerate()` on the normalized dataset.
 
 ```{r}
 Theis_agg <- agglomerate(df = Theis_rare_ASV,df_tax = Theis_rare_TAX, agg_class = "Genus")
@@ -346,32 +340,8 @@ Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
 Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
 
 Theis5 <- get_top_ASVs(Theis_agg_P, 5)
-Theis_preheatbar <- heatmap_prep(df = Theis_agg_P, df_tax = Theis_agg_tax_P, class_col = "Genus", df_meta = Theis_META_P, select_ASVs = Theis5, mean_ab_cutoff = FALSE)
-colnames(Theis_preheatbar) <- sub(pattern = "(.*)(-)(.*)", replacement = "\\1", x = colnames(Theis_preheatbar))
-colnames(Theis_preheatbar)[match("Methylobacterium-Methylorubrum-Methylobacterium", colnames(Theis_preheatbar))] <- "Methylobacterium-Methylorubrum"
 ```
 
-## Barplotting {#Barplotting}
-
-This package makes it very easy to generate stacked barplots which allow easy comparisons between the taxa that make up each sample type.
-
-### Preparation for Barplotting {#Barprep}
-
-It is quite easy to transition to barplotting from heatmapping, so it is recommended to run `heatmap_prep()` on a data set before `barplot_prep()`. 
-
-```{r}
-Theis_prebar <- barplot_prep(Theis_preheatbar, df_meta = Theis_META_P, type_col = "Del_GA", study = "Theis", DECONTAM_dataset = FALSE)
-Theis_prebar
-```
-
-### Plotting Barplots {#Barplot}
-
-Finally the we can make the barplots. Note, we do not need to store these plots to be able to plot them. 
-
-```{r fig.width= 8, fig.height=8}
-Theis_barplot <- barplotting(df = Theis_prebar, study = "Theis", legend_cols = 2, leg_title = "Genera")
-Theis_barplot
-```
 
 ***
 
@@ -447,7 +417,7 @@ head(Theis_contaminants[,1:20], 5)
 
 ## Finishing Up {#Finishing}
 
-Now that we have a data set run through DECONTAM, we need to re-plot everything. We can take the `Theis_true_taxa` data set and use the same process to generate PCoA plots, heatmaps, and barplots. 
+Now that we have a data set run through DECONTAM, we need to re-plot everything. We can take the `Theis_true_taxa` data set and use the same process to generate PCoA plots, and heatmaps. 
 
 Note that for this pass with a decontaminated data set, it is recommended to use a taxa cutoff in heatmap prep instead of the mean abundance cutoff because decontam filtering will have already modified taxa proportions by removing contaminant taxa from the data set.
 

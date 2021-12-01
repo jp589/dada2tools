@@ -1,6 +1,6 @@
 Package: dada2tools
 Title: DADA2 Tools
-Version: 1.5
+Version: 1.6
 Authors@R: 
     person(given = "Jonathan",
            family = "Panzer",
@@ -16,14 +16,12 @@ RoxygenNote: 7.1.1
 Imports:
     ComplexHeatmap (>= 2.2.0),
     circlize (>= 0.4.12),
-    cowplot (>= 1.1.1),
-    philentropy (>= 0.4.0),
     seqinr (>= 4.2.5),
     decontam (>= 1.6.0),
     dplyr (>= 1.0.2),
     ecodist (>= 2.0.7),
     ggplot2 (>= 3.3.2),
-    grid (>= 3.6.3),
+    grid (>= 3.6.1),
     here (>= 1.0.0),
     phyloseq (>= 1.30.0),
     purrr (>= 0.3.4),
@@ -35,7 +33,7 @@ Imports:
     flextable (>= 0.6.7),
     officer (>= 0.3.19),
 Depends: 
-    R (>= 4.0.0)
+    R (>= 3.6)
 Suggests: 
     knitr (>= 1.30),
     rmarkdown (>= 2.6),

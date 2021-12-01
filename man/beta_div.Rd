@@ -22,8 +22,7 @@ beta_div(
   nonhgrey = FALSE,
   type2,
   legendyn = TRUE,
-  size,
-  transp
+  size
 )
 }
 \arguments{
@@ -62,8 +61,6 @@ beta_div(
 \item{legendyn}{boolean vector indicating whether to include legend in plot. Default is \code{TRUE}.}
 
 \item{size}{optional numeric vector indicating size of all points plotted.}
-
-\item{transp}{optional numeric vector indicating transparency of all points to be plotted. Range from 0 to 1.}
 }
 \value{
 plots beta diversity PCoA plot and returns a dataframe containing eigenvalues and vectors for all possible plotting axes.

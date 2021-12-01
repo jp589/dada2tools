@@ -28,166 +28,6 @@ agglomerate <- function(df, df_tax, agg_class){
   df_final
 }
 
-#' Barplot Preparation
-#'
-#' Prepares data for barplotting. Recommended to use result from `heatmap_prep()` for `df`.
-#'
-#' @param df numeric dataframe with ASVs on columns and samples on rows.
-#' @param df_meta sample metadata with samples on rows.
-#' @param type_col character vector of column name in `df_meta` to be used for sample grouping
-#' @param study character vector of study name/title.
-#' @param DECONTAM_dataset boolean vector indicating whether dataset has been processed through DECONTAM.
-#'
-#' @return dataframe ready for `barplotting()`
-#' @export
-#' @importFrom rlang .data
-#' @importFrom magrittr %>%
-#'
-#' @examples
-#' library(dplyr)
-#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
-#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
-#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
-#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
-#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
-#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
-#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
-#' df_tax = Theis_agg_tax_P,
-#' class_col = "Genus",
-#' df_meta = Theis_META_P,
-#' select_ASVs = Theis5,
-#' mean_ab_cutoff = FALSE)
-#' Theis_prebar <- barplot_prep(df = Theis_preheatbar,
-#' df_meta = Theis_META_P,
-#' type_col = "Del_GA",
-#' study = "Theis",
-#' DECONTAM_dataset = FALSE)
-barplot_prep <- function (df, df_meta, type_col, study, DECONTAM_dataset = FALSE) {
-  prebar <- c()
-  df1 <- as.data.frame(t(df))
-  df_ordered <- df1[df1 %>% rowSums(.) %>% sort(., decreasing = TRUE) %>% names(.),]
-  uniques <- sort(unique(df_meta[[type_col]]))
-  if("Technical Control" %in% uniques){
-    uniques <- uniques[c(match("Technical Control", uniques), which(uniques %ni% "Technical Control"))]
-  }
-  for(i in 1:length(uniques)){
-    df_subset <- df_ordered %>% dplyr::select_if(df_meta[[type_col]] == uniques[i])
-    prebar <- as.data.frame(rbind(prebar, data.frame(
-      ASVs = factor(levels = rev(rownames(df_subset)), x = rownames(df_subset)),
-      Type = factor(levels = uniques, x = rep(uniques[i], dim(df_subset)[1])),
-      Genus = factor(levels = make.unique(rev(sub(pattern = "(ASV\\d+)(-)(.*)", x = rownames(df_subset), replacement = "\\3"))), x = make.unique(sub(pattern = "(ASV\\d+)(-)(.*)", x = rownames(df_subset), replacement = "\\3"))),
-      Total_Reads = as.numeric(rowSums(df_subset)),
-      Relative_Reads = as.numeric(100*prop.table(as.matrix(rowSums(df_subset)),2)),
-      Study = rep(study, dim(df_subset)[1]),
-      DECONTAM = rep(DECONTAM_dataset, dim(df_subset)[1])
-    )))
-  }
-  return(prebar)
-}
-
-#' Barplotting
-#'
-#' Function used to create stacked barplots of absolute and relative reads of sample types. Plots will be arranged so that after DECONTAM dataset is below regular version.
-#'
-#' @param df dataframe prepared with barplot_prep()
-#' @param study name of the study or origin of the data
-#' @param deco_df optional dataframe prepared with barplot_prep() but processed with DECONTAM
-#' @param legend_cols numeric vector of number of columns to split legend into.
-#' @param leg_title character vector to name legend.
-#'
-#' @return returns a plot object.
-#' @export
-#' @importFrom rlang .data
-#' @importFrom magrittr %>%
-#' @import ggplot2
-#'
-#' @examples
-#' library(dplyr)
-#' Theis_META_P <- Theis_rare_META %>% filter(Type == "Placenta")
-#' Theis_agg <- agglomerate(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, agg_class = "Genus")
-#' Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
-#' Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
-#' Theis_agg_tax_P <- Theis_agg_tax %>% filter(rownames(.) %in% rownames(Theis_agg_P))
-#' Theis5 <- get_top_ASVs(Theis_agg_P, 5)
-#' Theis_preheatbar <- heatmap_prep(df = Theis_agg_P,
-#' df_tax = Theis_agg_tax_P,
-#' class_col = "Genus",
-#' df_meta = Theis_META_P,
-#' select_ASVs = Theis5,
-#' mean_ab_cutoff = FALSE)
-#' Theis_prebar <- barplot_prep(df = Theis_preheatbar,
-#' df_meta = Theis_META_P,
-#' type_col = "Del_GA",
-#' study = "Theis",
-#' DECONTAM_dataset = FALSE)
-#' Theis_barplot <- barplotting(df = Theis_prebar,
-#' study = "Theis",
-#' legend_cols = 2,
-#' leg_title = "Genera")
-barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
-  #this will plot the barplot in one section of the screen and the legend in another.
-
-  if(!missing(deco_df)){
-    #ensures dataset is a dataframe if not already.
-    df <- as.data.frame(df)
-    deco_df <- as.data.frame(deco_df)
-    totalsD <- deco_df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
-    totals <- df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
-
-    All_combined <- rbind(df, deco_df)
-    abundance_totals <- All_combined %>% dplyr::group_by(.data$ASVs) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
-    abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
-    abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
-    #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
-    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
-    colr <- getPalette(length(unique(All_combined$ASVs)))
-    abundance_totals$Color <- colr
-    abundance_totals$Color[match("Other", abundance_totals$ASVs)] <- "#808080"
-
-
-    #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
-    Leg_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$Color); names(Leg_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$ASVs)
-    for_legend <- ggplot2::ggplot(data = All_combined, aes(x=.data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::theme(legend.text = element_text(face = "italic")) + ggplot2::ylab("Percent Relative Abundance") + ggplot2::scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggplot2::ggtitle(paste("For Legend", "by type"))
-    Legend_alone <- cowplot::get_legend(for_legend)
-
-    Rel_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$Color); names(Rel_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$ASVs)
-    Relative <- ggplot2::ggplot(data = df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      ggplot2::scale_fill_manual(values = Rel_vals)
-
-    RelD_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% deco_df$ASVs) %>% dplyr::pull(.data$Color); names(RelD_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% deco_df$ASVs) %>% dplyr::pull(.data$ASVs)
-    RelativeD <- ggplot2::ggplot(data = deco_df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      ggplot2::scale_fill_manual(values = RelD_vals)
-    plot <- cowplot::plot_grid(Relative, RelativeD, Legend_alone, labels = c("A", "B", ""), ncol = 1, nrow = 3, rel_heights = c(1, 1,.75), vjust = 1)
-  } else {
-
-    df <- as.data.frame(df)
-    All_combined <- df
-    totals <- df %>% dplyr::group_by(.data$Type) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
-    abundance_totals <- All_combined %>% dplyr::group_by(.data$ASVs) %>% dplyr::summarise(sum = sum(.data$Total_Reads))
-    abundance_totals <- abundance_totals[order(abundance_totals$sum, decreasing = TRUE),]
-    abundance_totals$ASVs <- factor(x = abundance_totals$ASVs, levels = abundance_totals$ASVs)
-    #creates the local function getPalette which uses the colorRampPalette function of the RColorBrewer package and the Spectral palette which is 11 colors.
-    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(11, "Spectral"))
-    colr <- getPalette(length(unique(All_combined$ASVs)))
-    abundance_totals$Color <- colr
-    abundance_totals$Color[match("Other", abundance_totals$ASVs)] <- "#808080"
-
-
-    #getPalette() is used to extrapolate the Spectral palette to any number of steps beyond the original 11.
-    Leg_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$Color); names(Leg_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% All_combined$ASVs) %>% dplyr::pull(.data$ASVs)
-    for_legend <- ggplot2::ggplot(data = All_combined, aes(x=.data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::theme(legend.text = element_text(face = "italic")) + ggplot2::ylab("Percent Relative Abundance") +  ggplot2::scale_fill_manual(name = leg_title, values = Leg_vals, guide = guide_legend(ncol = legend_cols)) + ggplot2::ggtitle(paste("For Legend", "by type"))
-    Legend_alone <- cowplot::get_legend(for_legend)
-
-    Rel_vals <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$Color); names(Rel_vals) <- abundance_totals %>% dplyr::filter(.data$ASVs %in% df$ASVs) %>% dplyr::pull(.data$ASVs)
-    Relative <- ggplot2::ggplot(data = df, aes(x= .data$Type, y = .data$Relative_Reads, fill = .data$ASVs)) + ggplot2::geom_bar(stat="identity") + ggplot2::ylab("Percent Relative Abundance") + ggplot2::labs(x= "") + ggplot2::theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1)) +
-      ggplot2::scale_fill_manual(values = Rel_vals)
-
-    plot <- cowplot::plot_grid(Relative, Legend_alone, labels = c("A", ""), ncol = 1, nrow = 2, rel_heights = c(1, .75), vjust = 1)
-  }
-
-  return(plot)
-}
-
 #' Beta Diversity Plotting
 #'
 #' A beta diversity plotting function built in base R to make a PCoA plot of Bray-Curtis distances between samples.
@@ -210,7 +50,6 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
 #' @param type2 optional character vector of column name from `df_meta` to perform secondary grouping on dataset (by shape)
 #' @param legendyn boolean vector indicating whether to include legend in plot. Default is `TRUE`.
 #' @param size optional numeric vector indicating size of all points plotted.
-#' @param transp optional numeric vector indicating transparency of all points to be plotted. Range from 0 to 1.
 #'
 #' @return plots beta diversity PCoA plot and returns a dataframe containing eigenvalues and vectors for all possible plotting axes.
 #' @export
@@ -225,7 +64,7 @@ barplotting <- function(df, deco_df, study, legend_cols = 1, leg_title) {
 #' taxa_on_rows = TRUE,
 #' size = 2,
 #' legendyn = FALSE)
-beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, invert_y = FALSE, ASP = 1, Legend_Yspace = 1, rel = FALSE, red_blue = FALSE, all_O = FALSE, taxa_on_rows = TRUE, highlight, nonhgrey = FALSE, type2, legendyn = TRUE, size, transp) {
+beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, invert_y = FALSE, ASP = 1, Legend_Yspace = 1, rel = FALSE, red_blue = FALSE, all_O = FALSE, taxa_on_rows = TRUE, highlight, nonhgrey = FALSE, type2, legendyn = TRUE, size) {
   #records current palette
   pal <- grDevices::palette()
 
@@ -275,17 +114,13 @@ beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, inve
     highlight_bool <- X %in% highlight
     col_vec <- color_rep(colr, X, highlight, highlight_bool, nonhgrey)
   }
-  if(!missing(transp)){
-    transparent_colr <- grDevices::palette.colors(n = length(unique(df_meta[[type]])), palette = "R4", alpha = transp)
-    transp_vec <- color_rep(transparent_colr, X, nonhgrey = FALSE)
-  }
 
   graphics::par(xpd = FALSE)
   #plots the PCoA. pch parameter is used to change the shape of point used(i.e. star instead of dot)
   if(!missing(type2)){
-    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{if(!missing(transp)){transp_vec}else{as.numeric(as.factor(df_meta[[type]]))}}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= as.numeric(as.factor(df_meta[[type2]])), main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
+    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{as.numeric(as.factor(df_meta[[type]]))}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= as.numeric(as.factor(df_meta[[type2]])), main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
   } else{
-    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{if(!missing(transp)){transp_vec}else{as.numeric(as.factor(df_meta[[type]]))}}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= if(all_O == TRUE){1}else{as.numeric(as.factor(df_meta[[type2]]))}, main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
+    graphics::plot(x = invert_x*(df.pcoa$vectors[,1]), y = invert_y*(df.pcoa$vectors[,2]), col= if(!missing(highlight)){col_vec}else{as.numeric(as.factor(df_meta[[type]]))}, lwd = 3, cex =if(!missing(size)){size}else{1}, pch= if(all_O == TRUE){1}else{as.numeric(as.factor(df_meta[[type2]]))}, main = study, xlab = paste0("PC1 (", axis1_rel_eigen, "%)"), ylab = paste0("PC2 (", axis2_rel_eigen, "%)"), asp = ASP)
   }
 
   if(legendyn == TRUE){
@@ -358,6 +193,124 @@ color_rep <- function(colors, full_set, highlight, highlight_bool, nonhgrey){
     color_vector[is.na(color_vector)] <- "#D3D3D3"
   }
   color_vector
+}
+
+#' Combine V4
+#'
+#' Combines sequence data from multiple studies based on ASV sequences from the same variable region. Taxonomy and metadata are also merged.
+#' ASV count tables should have taxa on rows and samples on columns. Rownames should be numbered ASVs identical to rownames in taxonomy.
+#' Taxonomy should include a column labeled `ASV` with ASVs numbered e.g. `ASV1`.
+#' Metadata columns for each study should match and should not be of type factor.
+#'
+#' @param ASV_datasets list of ASV tables to combine.
+#' @param TAX_datasets list of TAX tables to combine.
+#' @param META_datasets list of META tables to combine.
+#'
+#' @return a list object which contains the merged ASV count table, metadata, taxonomy, and a map to trace ASV renaming.
+#' @export
+#'
+#' @examples
+#' Theis_split1_ASV <- Theis_rare_ASV[,
+#' c(rep(TRUE, length(Theis_rare_META)/2), rep(FALSE, length(Theis_rare_META)/2))]
+#' Theis_split2_ASV <- Theis_rare_ASV[,
+#' c(rep(FALSE, length(Theis_rare_META)/2), rep(TRUE, length(Theis_rare_META)/2))]
+#' Theis_split1_ASV <- Theis_split1_ASV[rowSums(Theis_split1_ASV) > 0,]
+#' Theis_split2_ASV <- Theis_split2_ASV[rowSums(Theis_split2_ASV) > 0,]
+#' Theis_split1_META <- Theis_rare_META[
+#' c(rep(TRUE, length(Theis_rare_META)/2), rep(FALSE, length(Theis_rare_META)/2)),]
+#' Theis_split2_META <- Theis_rare_META[
+#' c(rep(FALSE, length(Theis_rare_META)/2), rep(TRUE, length(Theis_rare_META)/2)),]
+#' Theis_rare_TAX <- cbind(data.frame(
+#' ASV = rownames(Theis_rare_TAX), stringsAsFactors = FALSE),
+#' Theis_rare_TAX)
+#' Theis_split1_TAX <- Theis_rare_TAX[
+#' match(x = rownames(Theis_split1_ASV), table = rownames(Theis_rare_TAX)),]
+#' Theis_split2_TAX <- Theis_rare_TAX[
+#' match(x = rownames(Theis_split2_ASV), table = rownames(Theis_rare_TAX)),]
+#' combined <- combine_V4(ASV_datasets = list(Theis_split1_ASV, Theis_split2_ASV),
+#' TAX_datasets = list(Theis_split1_TAX, Theis_split2_TAX),
+#' META_datasets = list(Theis_split1_META, Theis_split2_META))
+combine_V4 <- function(ASV_datasets, TAX_datasets, META_datasets){
+  #initializes dataframes
+  Combined_META <- c();  ASV_map <- c()
+  #combines metadata
+  for(i in 1:length(META_datasets)){
+    Combined_META <- rbind(Combined_META, META_datasets[[i]])
+  }
+  #determines number of taxonomy objects to be merged
+  list_length <- length(TAX_datasets)
+  #merges taxonomy two at a time
+  for(i in 1:(list_length-1)){
+    #combining taxa datasets and ASV datasets
+    #storing the first taxa dataset as an R object.
+    taxa1 <- if(exists("Combined_TAX")){Combined_TAX} else{TAX_datasets[[i]]}
+    #storing the second taxa dataset as an R object.
+    taxa2 <- TAX_datasets[[i+1]]
+    #storing the first ASV dataset as an R object.
+    asv1 <- if(exists("Combined_ASV")){Combined_ASV} else{ASV_datasets[[i]]}
+    #storing the second ASV dataset as an R object.
+    asv2 <- ASV_datasets[[i+1]]
+    #ordering the first ASV dataset.
+    asv1_ordered <- asv1[order(rownames(asv1)),]
+    #ordering the second ASV dataset.
+    asv2_ordered <- asv2[order(rownames(asv2)),]
+
+    #merging the first two taxa datasets with an outside join.
+    merged_taxa <- merge.data.frame(x = taxa1, y = taxa2, by = "X", all = TRUE)
+    #adding a new ASV column which spans all ASVs in the merged taxa table.
+    merged_taxa$NewASV <- paste0("ASV", 1:nrow(merged_taxa))
+
+    #ordering the merged taxa table to match.
+    merged_taxa_ordered <- merged_taxa[order(merged_taxa$ASV.x),]
+
+    #creation of ASV map to track ASV changes
+    if(is.null(ASV_map)){
+      ASV_map <- data.frame(First_tax = merged_taxa_ordered$ASV.x, Second_tax = merged_taxa_ordered$ASV.y, New_tax = merged_taxa_ordered$NewASV, stringsAsFactors = FALSE)
+      colnames(ASV_map) <- c(paste0("First_Tax", i), paste0("Second_Tax", i), paste0("New_Tax", i))
+    }
+    if(length(ASV_map[,(3*(i-1))]) != nrow(merged_taxa_ordered) && !is.null(ASV_map) && i != 1){
+      row_difference <- nrow(merged_taxa_ordered) - length(ASV_map[,(3*(i-1))])
+      NAs <- data.frame(matrix(data = NA, nrow = row_difference, ncol = ncol(ASV_map)), stringsAsFactors = FALSE)
+      colnames(NAs) <- colnames(ASV_map)
+      ASV_map <- ASV_map[order(ASV_map[,(3*(i-1))]),]
+      ASV_map <- rbind(ASV_map, NAs)
+      ASV_map_add <- data.frame(One = merged_taxa_ordered$ASV.x, Two = merged_taxa_ordered$ASV.y, Three = merged_taxa_ordered$NewASV, stringsAsFactors = FALSE)
+      colnames(ASV_map_add) <- c(paste0("First_Tax", i), paste0("Second_Tax", i), paste0("New_Tax", i))
+      ASV_map <- cbind(ASV_map, ASV_map_add)
+    }
+
+    tax_combined_ordered <- merged_taxa_ordered
+    #figures out where new ASVs from second taxa dataset do not overlap ASVs from the first and stores the uniques to tax2 in the same column as tax1 classifications.
+    tax_combined_ordered[match(x = NA, table = tax_combined_ordered$ASV.x):nrow(tax_combined_ordered),2:9] <- tax_combined_ordered[match(x = NA, table = tax_combined_ordered$ASV.x):nrow(merged_taxa_ordered),10:17]
+    #selects only the columns from the first half and the newASV column. This will be the new combined taxa_table for the first two datsets.
+    tax_combined_ordered <- tax_combined_ordered[,c(1:9, 18)]
+    Combined_TAX <- tax_combined_ordered
+    Combined_TAX[,2] <- Combined_TAX$NewASV
+    Combined_TAX <- Combined_TAX[,c(10,1,3:9)]
+    colnames(Combined_TAX) <- colnames(taxa1)
+    Combined_TAX <- Combined_TAX[order(Combined_TAX$ASV),]
+    #need to add additional rows to ASV datasets.
+    zeros <- data.frame(matrix(data = 0, nrow = length(match(x = NA, table = merged_taxa_ordered$ASV.x):nrow(merged_taxa_ordered)), ncol = ncol(asv1)), stringsAsFactors = FALSE)
+    colnames(zeros) <- colnames(asv1_ordered)
+    asv1_ordered <- rbind(asv1_ordered, zeros)
+    #renaming ASVs. asv1_ordered is almost ready to combine.
+    rownames(asv1_ordered) <- tax_combined_ordered$NewASV
+
+    #working on asv2. have to order based on asv.y
+    merged_taxa_reordered <- merged_taxa_ordered[order(merged_taxa_ordered$ASV.y),]
+    zeros2 <- data.frame(matrix(data = 0, nrow = length(match(x = NA, table = merged_taxa_reordered$ASV.y):nrow(merged_taxa_reordered)), ncol = ncol(asv2)), stringsAsFactors = FALSE)
+    colnames(zeros2) <- colnames(asv2_ordered)
+    asv2_ordered <- rbind(asv2_ordered, zeros2)
+    #renaming ASVs
+    rownames(asv2_ordered) <- merged_taxa_reordered$NewASV
+
+    asv1_final_order <- asv1_ordered[order(rownames(asv1_ordered)),]
+    asv2_final_order <- asv2_ordered[order(rownames(asv2_ordered)),]
+    Combined_ASV <- as.data.frame(cbind(asv1_final_order, asv2_final_order))
+  }
+
+  Result <- list(ASV = Combined_ASV, META = Combined_META, TAX = Combined_TAX, ASV_MAP = ASV_map)
+  Result
 }
 
 #' Convert Merged Dataset
@@ -623,7 +576,7 @@ dephy <- function(phyloseq_obj){
   ASV <- phyloseq::otu_table(phyloseq_obj)
   ASV <- as.data.frame(ASV)
   TAX <- phyloseq::tax_table(phyloseq_obj)
-  TAX <- as.data.frame(TAX)
+  TAX <- as.data.frame(TAX, stringsAsFactors = FALSE)
   if(nrow(TAX) == nrow(ASV)){
     merged <- cbind(TAX, ASV)
   } else {
@@ -833,47 +786,6 @@ heatmapping <- function(df, df_meta, types_col, scalecolor = "red-blue", title, 
   }
 }
 
-#' Jensen-Shannon Sample Clustering by Group
-#'
-#' Calculates the average Jensen-Shannon Divergence within sample groups. Can be used to determine degree of similarity.
-#'
-#' @param df an ASV/OTU table with samples as column names and ASV/OTUs as row names. The entire dataframe should be ASV/OTU counts, not taxonomy.
-#' @param meta an associated metadata file which is ordered by the order of samples in the ASV/OTU table, and which has a column to group samples by.
-#' @param Grouping_Col character vector of the column name by which to group by.
-#'
-#' @return A dataframe with group names, and mean Jensen-Shannon divergences.
-#' @export
-#'
-#' @examples
-#' JS_clusters <- JS_group_div(df = t(Theis_rare_ASV),
-#' meta = Theis_rare_META,
-#' Grouping_Col = "Type")
-JS_group_div <- function(df, meta, Grouping_Col){
-  JSD_means <- c()
-  unique_dups <- unique(meta[[Grouping_Col]][duplicated(meta[[Grouping_Col]])])
-  #needs to be iterative.
-  grepl_result <- grepl(pattern = paste0("^", unique_dups[[1]], "$"), meta[[Grouping_Col]])
-  #be able to isolate each group.
-  for(i in 2:length(unique_dups)){
-    grepl_result <- append(grepl_result, grepl(pattern = paste0("^", unique_dups[[i]], "$"), meta[[Grouping_Col]]))
-  }
-  for (i in 1:length(unique_dups)){
-    df_group <- df[grepl_result[(1+(dim(df)[1]*(i-1))):(dim(df)[1]+(dim(df)[1]*(i-1)))],1:ncol(df)]
-    JSD_mat <- philentropy::JSD(as.matrix(df_group), test.na = FALSE, unit = "log", est.prob = "empirical")
-    if(length(dim(JSD_mat)[2]) == 1){
-      col_len <- dim(JSD_mat)[2]
-      skip_TF <- c(rep(c(FALSE, rep(TRUE, col_len)), col_len-1), FALSE)
-      JSD_vec <- as.vector(JSD_mat)
-      JSD_vec <- JSD_vec[skip_TF]
-    } else{
-      JSD_vec <- JSD_mat
-    }
-    JSD_means <- append(JSD_means, mean(JSD_vec))
-  }
-  JSD_out <- data.frame(Group = unique_dups, Means = JSD_means)
-  JSD_out
-}
-
 #allows "not in" syntax
 '%ni%' <- Negate('%in%')
 
@@ -999,7 +911,7 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
     ASVs_Greater_than <- ASVs_Greater_than %>% sort(., decreasing = TRUE) %>% utils::head(., top)
   }
 
-  df <- data.frame(ASV = names(ASVs_Greater_than), Rel_Abund = unlist(ASVs_Greater_than))
+  df <- data.frame(ASV = names(ASVs_Greater_than), Rel_Abund = unlist(ASVs_Greater_than), stringsAsFactors = FALSE)
   TAX_filt <- TAX %>% dplyr::filter(rownames(.) %in% names(ASVs_Greater_than)) %>% dplyr::select(c("X", "Genus", "Species"))
   TAX_filt$ASV <- rownames(TAX_filt)
   df_merged <- merge(df, TAX_filt, by = "ASV")
@@ -1008,7 +920,7 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
     current_rows <- dim(df_merged)[1]
     missing_rows <- (top - current_rows)
     for(i in 1:missing_rows){
-      df_merged <- rbind(df_merged, data.frame(ASV = NA, Rel_Abund = 0, X = NA, Genus = NA, Species = NA))
+      df_merged <- rbind(df_merged, data.frame(ASV = NA, Rel_Abund = 0, X = NA, Genus = NA, Species = NA, stringsAsFactors = FALSE))
     }
   }
 
