@@ -886,14 +886,17 @@ row_sample_elim <- function(df,thresh = 1) {
 top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TRUE, study, subject_col, subjects){
   ASVs_Greater_than <- c()
   if(ASVs_on_Rows == TRUE){
+    #flips ASVs to columns
     ASV <- as.data.frame(t(ASV))
   }
   if(!missing(subject_col)){
     for (i in 1:length(subjects)){
       ASV_subject <- as.data.frame(ASV) %>% dplyr::filter(META[[subject_col]] == subjects[i])
-      ASV_colsums <- colSums(ASV_subject)
-      ASV_colsums_pct <- ASV_colsums/sum(ASV_colsums)
-      ASV_cutoff <- ASV_colsums_pct[ASV_colsums_pct > cutoff]
+      #flips ASVs back to rows
+      ASV_subject <- t(ASV_subject)
+      ASV_rel <- sweep(x = ASV_subject, MARGIN = 2, colSums(ASV_subject), `/`)
+      mean_abundance <- rowMeans(ASV_rel)
+      ASV_cutoff <- mean_abundance[which(mean_abundance > cutoff)]
       ASVs_Greater_than <- append(ASVs_Greater_than, ASV_cutoff)
       if(missing(top)){
         top <- length(ASVs_Greater_than)
@@ -901,9 +904,11 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
     }
   }
   if(missing(subject_col)){
-    ASV_colsums <- colSums(ASV)
-    ASV_colsums_pct <- ASV_colsums/sum(ASV_colsums)
-    ASV_cutoff <- ASV_colsums_pct[ASV_colsums_pct > cutoff]
+    #flips ASVs back to rows
+    ASV_df <- t(ASV)
+    ASV_rel <- sweep(x = ASV_df, MARGIN = 2, colSums(ASV_df), `/`)
+    mean_abundance <- rowMeans(ASV_rel)
+    ASV_cutoff <- mean_abundance[which(mean_abundance > cutoff)]
     ASVs_Greater_than <- append(ASVs_Greater_than, ASV_cutoff)
     if(missing(top)){
       top <- length(ASVs_Greater_than)
@@ -971,12 +976,14 @@ top_ASVs_above_cutoff <- function(ASV, TAX, META, cutoff, top, ASVs_on_Rows = TR
 #' ASVs_to_plot = Theis_topASVs)
 WA_labels <- function(Plot_object, ASV_table, TAX_table, ASVs_to_plot, Tax_col, ASV_with_Genus = TRUE, ASVs_on_rows = TRUE, color, Greater_than_1per = FALSE, invert_x = FALSE, invert_y = FALSE){
   if(ASVs_on_rows == TRUE){
+    #flips ASVs to columns
     ASV_table <- t(ASV_table)
   }
 
   if(Greater_than_1per == TRUE){
+    #flips ASVs back to rows
     ASV_df <- t(ASV_table)
-    ASV_rel <- ASV_df/colSums(ASV_df)
+    ASV_rel <- sweep(x = ASV_df, MARGIN = 2, colSums(ASV_df), `/`)
     mean_abundance <- rowMeans(ASV_rel)
     ASV_names <- names(which(mean_abundance > 0.01))
     ASVs_to_plot <- ASV_names
