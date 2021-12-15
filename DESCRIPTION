@@ -15,11 +15,11 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 Imports:
     ComplexHeatmap (>= 2.2.0),
-    circlize (>= 0.4.12),
-    seqinr (>= 4.2.5),
+    circlize (>= 0.4.10),
+    seqinr (>= 4.2.4),
     decontam (>= 1.6.0),
     dplyr (>= 1.0.2),
-    ecodist (>= 2.0.7),
+    ecodist (>= 2.0.5),
     ggplot2 (>= 3.3.2),
     grid (>= 3.6.1),
     here (>= 1.0.0),
@@ -27,20 +27,20 @@ Imports:
     purrr (>= 0.3.4),
     magrittr (>= 2.0.1),
     RColorBrewer (>= 1.1.2),
-    stringr (>= 1.4.0),
+    stringr (>= 1.3.1),
     vegan (>= 2.5.6),
     rlang (>= 0.4.10),
-    flextable (>= 0.6.7),
+    flextable (>= 0.6.5),
     officer (>= 0.3.19),
 Depends: 
     R (>= 3.6)
 Suggests: 
     knitr (>= 1.30),
     rmarkdown (>= 2.6),
-    gifski (>= 0.8.6),
-    RPushbullet (>= 0.3.4),
-    dada2 (>= 1.18.0),
-    pdftools (>= 3.0.1),
-    openxlsx (>= 4.2.3),
-    readxl (>= 1.3.1)
+    gifski (>= 0.8.3),
+    RPushbullet (>= 0.3.2),
+    dada2 (>= 1.14.0),
+    pdftools (>= 2.2),
+    openxlsx (>= 4.2.2),
+    readxl (>= 1.3.0)
 VignetteBuilder: knitr
