@@ -1,5 +1,6 @@
 ---
 title: "dada2tools"
+author: "Jonathan Panzer"
 output:
   rmarkdown::html_vignette
 vignette: |
@@ -15,6 +16,10 @@ knitr::opts_chunk$set(
   cache = TRUE
 )
 ```
+
+# Setup
+
+The following packages are required to run the code in the vignette.
 
 ```{r setup, results='hide'}
 library(dada2)
@@ -41,7 +46,7 @@ library(here)
 ```
 # Introduction to dada2tools
 
-This package was written for researchers using DADA2 for their 16s rRNA sequencing data analysis. It allows easy construction of PCoA plots, heatmaps, and more. This vignette walks the reader through each of the functions in the order that they should be run with detailed examples and helpful notes.
+This package was written for researchers using DADA2 for their 16S rRNA sequencing data analysis. It allows easy construction of PCoA plots, heatmaps, and more. This vignette walks the reader through each of the functions in the order that they should be run with detailed examples and helpful notes.
 
 
 # Contents
@@ -71,37 +76,43 @@ This package was written for researchers using DADA2 for their 16s rRNA sequenci
 ***
 ## Loading The Data Set {#Loading}
 
-After running DADA2 on a study data set, the results must be loaded into R. DADA2 outputs a taxa table along with an ASV table. These must be merged with taxa as rows and samples as columns.
+After processing 16S rRNA gene sequencing data with DADA2, the results must be loaded into R. DADA2 outputs a taxa table along with an ASV table. These must be merged with the taxa as rows and samples as columns.
 
 This can be done with:
-```{r eval=FALSE}
+```{r example_merging, eval=FALSE}
 merged <- cbind(taxa.species, t(seqtab.nochim))
 ```
 
 If DADA2 was run using the `Example_Script.R` within this package, the output will already be in the correct format.
 
 To access the script, which is run in three blocks, use:
-```{r eval= FALSE}
+```{r example_script, eval= FALSE}
 ES <- here::here("inst", "extdata", "Example_Script.R")
 file.edit(ES)
 ```
 
-It will also have been saved as a `merged.csv` file which can be loaded with:
-```{r eval = FALSE}
+The result of DADA2 processing: `merged.csv` will also have been saved and can be loaded as follows.
+
+```{r reading_csv, eval = FALSE}
 #read.csv("~/path/to/file.csv", stringsAsFactors = FALSE)
-Theis_merged <- read.csv(here("data-raw", "Theis_merged.csv"), stringsAsFactors = FALSE)
+Theis_merged <- read.csv(here::here("data-raw", "Theis_merged.csv"), stringsAsFactors = FALSE)
 ```
 
 ### Check Column Types {#Check}
 
 It is always good practice to make sure that all numeric columns are actually of type numeric and all character columns are actually of type character. R will often convert characters and sometimes numbers to factors. This can be a real issue since the data looks exactly the same.
 
-```{r}
-Theis_merged
+```{r column_check}
+str(Theis_merged)
 
-#We can use convert_merged() to ensure that all columns are of the proper type. `char_range` is the column range for taxonomy and num_range is the column range for the ASV/OTU table.
+#We can use convert_merged() to ensure that all columns are of the proper type. 
+#`char_range` is the column range for taxonomy and num_range is the column range for the ASV/OTU table.
 
-Theis_merged <- convert_merged(merged = Theis_merged, char_range = 1:8, num_range = 9:ncol(Theis_merged))
+Theis_merged <- convert_merged(
+  merged = Theis_merged, 
+  char_range = 1:8, 
+  num_range = 9:ncol(Theis_merged)
+  )
 ```
 
 ***
@@ -117,18 +128,21 @@ Now that the data set is loaded into the global environment we can begin to clea
 In order to work with the ASV/OTU table we need to prepare metadata to filter/select for specific samples. This metadata is often found on the NCBI SRA Run Selector in association with the files to be downloaded. The downloaded metadata file (SraRunTable.txt) can then be converted to .csv by simply changing the extension from .txt to .csv. However, in order to use the metadata we first need to organize and match it to the samples in the ASV/OTU table. Relevant columns for this study include `Run` and `Library.Name`. Be aware that relevant columns can vary from study to study.
 
 This can then be imported into R using:
-```{r, eval=FALSE}
+```{r initial_meta, eval=FALSE}
 #read.csv("path/to/file.csv", stringsAsFactors = FALSE)
 Theis_META <- read.csv(here("data-raw", "Theis_SraRunTable.csv"), stringsAsFactors = FALSE)
 ```
 
 The `Theis_META` data file in this package is an example of what metadata will look like. Note that in the merged data set and the metadata, the SRR numbers are in order. Make sure they match each other:
-```{r}
+```{r data_cleanup}
 library(dplyr)
 #using example metadata from package
 
 for (i in 1:length(Theis_META$Run)){
-    if (str_detect(string = Theis_META$Library.Name[i], pattern = "AC")|str_detect(string = Theis_META$Library.Name[i], pattern = "V")){
+    if (
+        str_detect(string = Theis_META$Library.Name[i], pattern = "AC")|
+        str_detect(string = Theis_META$Library.Name[i], pattern = "V")
+       ){
         Theis_META$Type[i] <- "Placenta"
         Theis_META$GA[i] <- "Term"
         Theis_META$Delivery[i] <- "Cesarean"
@@ -140,10 +154,14 @@ for (i in 1:length(Theis_META$Run)){
 }
 
 #filter metadata to a subset of the samples which were PCR amplified for a standard 30 cycles.
-Theis_META_filt <- Theis_META %>% filter(LibrarySource == "METAGENOMIC") %>% select_if(colnames(.) %in% c("Run", "Library.Name", "Type", "GA", "Delivery"))
+Theis_META_filt <- Theis_META %>% 
+  filter(LibrarySource == "METAGENOMIC") %>% 
+  select_if(colnames(.) %in% c("Run", "Library.Name", "Type", "GA", "Delivery"))
 
 #We will only be using a subset of the samples which were PCR amplified for a standard 30 cycles.
-Theis_ASV <- Theis_merged %>% select_if(., is.numeric) %>% select_if(colnames(.) %in% Theis_META_filt$Run)
+Theis_ASV <- Theis_merged %>% 
+  select_if(., is.numeric) %>% 
+  select_if(colnames(.) %in% Theis_META_filt$Run)
 Theis_TAX <- Theis_merged[, 1:8]
 Theis_merged2 <- cbind(Theis_TAX, Theis_ASV)
 ```
@@ -160,8 +178,8 @@ We now have to remove taxa which do not meet our filter parameters.
 
 We will also remove any samples which do not have at least 200 reads after filtering.
 
-This is all done with `dadaset_clean()` which will also give an output listing samples eliminated from further analysis.
-```{r}
+This is all done with `dadaset_clean()`. In addition, the function will list how many taxa were removed for the four reasons listed above as well as the number of samples eliminated from further analysis.
+```{r filtering_data}
 #filtering process
 Theis_merged_clean <- dadaset_clean(df = Theis_merged2, read_thresh = 100)
 #give each ASV a number
@@ -171,7 +189,9 @@ rownames(Theis_merged_clean) <- paste0("ASV", 1:nrow(Theis_merged_clean))
 Theis_META_order <- Theis_META_filt[order(Theis_META_filt$Run),]
 
 #order merged dataset
-Theis_merged_order <- cbind(Theis_merged_clean[,1:8], Theis_merged_clean[,9:ncol(Theis_merged_clean)] %>% .[,order(colnames(.))])
+Theis_merged_order <- cbind(
+  Theis_merged_clean[,1:8], 
+  Theis_merged_clean[,9:ncol(Theis_merged_clean)] %>% .[,order(colnames(.))])
 
 #Ensure that samples not present in ASV table are not present in metadata either.
 Theis_META_order <- Theis_META_order %>% filter(Run %in% colnames(Theis_merged_clean))
@@ -185,7 +205,7 @@ colnames(Theis_merged_order)[9:ncol(Theis_merged_order)] == Theis_META_order$Run
 #### Removing Taxa in Controls {#Removing}
 
 A more aggressive filtering method which removes all taxa found in technical controls can be used if desired.
-```{r}
+```{r removing_taxa}
 '%ni%' <- Negate('%in%')
 Theis_tech_control_samples <- Theis_merged_order[,9:ncol(Theis_merged_order)] %>% select_if(Theis_META_order$Type == "Technical Control")
 TC_taxa <- Theis_tech_control_samples %>% filter(rowSums(.) > 0) %>% rownames(.)
@@ -200,14 +220,24 @@ Theis_TC_Removed <- dadaset_clean(Theis_no_TC_taxa, read_thresh = 1)
 
 ### Normalization {#Normalization}
 
-Sampling depth can vary drastically with placental samples and therefore, before any analysis is done, the sampling depth needs to be normalized. Here, we use subsampling with the function `phyloseq::rarefy_even_depth()`.
+Sampling depth varies greatly with placental samples and therefore, before any analysis is done, the sampling depth needs to be normalized in order to make comparisons between different samples. Here, we utilize sub-sampling otherwise known as rarefaction with the function `phyloseq::rarefy_even_depth()`.
 
-```{r}
+```{r normalization}
 #first we convert the merged dataset into a phyloseq object
-Theis_phy <- phyloseqize(merged_df = Theis_merged_order, taxa_as_rows = TRUE, keep_ASV_nums = TRUE)
+Theis_phy <- phyloseqize(
+  merged_df = Theis_merged_order, 
+  taxa_as_rows = TRUE, 
+  keep_ASV_nums = TRUE
+  )
 
-#here we guarantee that the lowest sampling depth will be 100. subsampling is also pseudorandom, so for reproducibility the seed is set to `1`.
-Theis_phy_rare <- phyloseq::rarefy_even_depth(physeq = Theis_phy, sample.size = max(min(sample_sums(Theis_phy)), 100), rngseed = 1, replace = FALSE)
+#here we guarantee that the lowest sampling depth will be 100. subsampling is also pseudorandom, 
+#so for reproducibility the seed is set to `1`.
+Theis_phy_rare <- phyloseq::rarefy_even_depth(
+  physeq = Theis_phy, 
+  sample.size = max(min(sample_sums(Theis_phy)), 100), 
+  rngseed = 1, 
+  replace = FALSE
+  )
 
 #Conversion back to dataframe for further analysis.
 Theis_rare <- dephy(phyloseq_obj = Theis_phy_rare)
@@ -228,7 +258,7 @@ Theis_rare_META$Level <- case_when(
 
 It can be useful to subset a dataset to only samples of a particular type. This is quite straightforward with dplyr piping (`%>%`).
 
-```{r}
+```{r subsetting}
 #Only Placental Samples.
 Theis_ASV_P <- Theis_rare_ASV %>% select_if(Theis_rare_META$Type == "Placenta")
 Theis_ASV_P <- Theis_ASV_P %>% filter(rowSums(.) > 0)
@@ -240,7 +270,7 @@ Theis_TAX_P <- Theis_rare_TAX %>% filter(rownames(.) %in% rownames(Theis_ASV_P))
 ***
 ## Named List creation {#Named}
 
-In some cases we'll need to create a named list. Through base R it can be done by:
+In some cases named lists will need to be created. Through base R it can be done by:
 
  `example_list <- list("name1" = 28, "name2" = 41, "name3" = 29)`
 
@@ -248,38 +278,83 @@ In some cases we'll need to create a named list. Through base R it can be done b
 
 ## Beta Diversity Plotting {#Beta}
 
-To analyze the structure of the samples in this data set we will be creating PCoA plots of Bray-Curtis dissimilarity indices. Once the data set is cleaned and normalized, a plot can be generated using `beta_div()`. On top of that plot, weighted average genus labels of select ASVs can be plotted using `WA_labels()`. 
+To analyze the structure of the samples in this data set we create PCoA plots of Bray-Curtis dissimilarity indices. Once the data set is cleaned and normalized, a beta diversity plot can be generated using `beta_div()`. Weighted average genus labels of select ASVs can also be plotted on top of the PCoA using `WA_labels()`. 
 
-```{r fig.width= 7, fig.height= 7}
+```{r beta_diversity_plotting, fig.width= 7, fig.height= 7}
 
 palette(c("red", "black"))
 par(xpd = FALSE)
-Theis_Beta_plot_PTCWA <- beta_div(df = Theis_rare_ASV, df_meta = Theis_rare_META, type = "Type", study = "Example Plot", all_O = TRUE, taxa_on_rows = TRUE, size = 2, legendyn = FALSE)
+Theis_Beta_plot_PTCWA <- beta_div(
+  df = Theis_rare_ASV, 
+  df_meta = Theis_rare_META, 
+  type = "Type", 
+  study = "Example Plot", 
+  all_O = TRUE, 
+  taxa_on_rows = TRUE, 
+  size = 2, 
+  legendyn = FALSE)
 Theis_topASVs <- rowSums(Theis_rare_ASV) %>% sort(., decreasing = TRUE) %>% head(., 10)
 par(xpd = FALSE)
-WA_labels(Plot_object = Theis_Beta_plot_PTCWA, ASV_table = Theis_rare_ASV, TAX_table = Theis_rare_TAX, ASVs_on_rows = TRUE, ASV_with_Genus = FALSE, Tax_col = "Genus", color = "grey", Greater_than_1per = FALSE, ASVs_to_plot = names(Theis_topASVs))
+WA_labels(
+  Plot_object = Theis_Beta_plot_PTCWA, 
+  ASV_table = Theis_rare_ASV, 
+  TAX_table = Theis_rare_TAX, 
+  ASVs_on_rows = TRUE, 
+  ASV_with_Genus = FALSE, 
+  Tax_col = "Genus", 
+  color = "grey", 
+  Greater_than_1per = FALSE, 
+  ASVs_to_plot = names(Theis_topASVs))
 ```
 
-If the plot needs to be rotated for better comparison to a related PCoA plot, the `invert_x` and `invert_y` arguments can be used to correct the plot orientation.
-```{r, animation.hook= "gifski", fig.width=7, fig.height=6}
-beta_div(df = Theis_rare_ASV, df_meta = Theis_rare_META, type = "Type", study = "Inverted Over Y axis", all_O = TRUE, taxa_on_rows = TRUE, size = 2, legendyn = FALSE, invert_x = TRUE)
-beta_div(df = Theis_rare_ASV, df_meta = Theis_rare_META, type = "Type", study = "Inverted Over X axis", all_O = TRUE, taxa_on_rows = TRUE, size = 2, legendyn = FALSE, invert_y = TRUE)
-beta_div(df = Theis_rare_ASV, df_meta = Theis_rare_META, type = "Type", study = "Inverted Over Both Axes", all_O = TRUE, taxa_on_rows = TRUE, size = 2, legendyn = FALSE, invert_x = TRUE, invert_y = TRUE)
+If the plot needs to be rotated for better comparison to a related PCoA plot, the `invert_x` and `invert_y` arguments can be used to correct the plot orientation. `invert_x` and `invert_y` refer to the desired axis over which the points will be inverted.
+```{r inversions, animation.hook= "gifski", fig.width=7, fig.height=6}
+x_inverted <- beta_div(
+  df = Theis_rare_ASV, 
+  df_meta = Theis_rare_META, 
+  type = "Type", 
+  study = "Inverted Over Y axis", 
+  all_O = TRUE, 
+  taxa_on_rows = TRUE, 
+  size = 2, 
+  legendyn = FALSE, 
+  invert_x = TRUE)
+y_inverted <- beta_div(
+  df = Theis_rare_ASV, 
+  df_meta = Theis_rare_META, 
+  type = "Type", 
+  study = "Inverted Over X axis", 
+  all_O = TRUE, 
+  taxa_on_rows = TRUE, 
+  size = 2, 
+  legendyn = FALSE, 
+  invert_y = TRUE)
+xy_inverted <- beta_div(
+  df = Theis_rare_ASV, 
+  df_meta = Theis_rare_META, 
+  type = "Type", 
+  study = "Inverted Over Both Axes", 
+  all_O = TRUE, 
+  taxa_on_rows = TRUE, 
+  size = 2, 
+  legendyn = FALSE, 
+  invert_x = TRUE, 
+  invert_y = TRUE)
 ```
 
-After generating the desired PCoA plot(s), we can now move on to heatmapping.
+After generating the desired PCoA plot(s), we can now focus on heatmapping.
 
 ***
 
 ## Heatmapping {#Heatmapping}
 
-This package uses the Heatmap function from the `ComplexHeatmap` package, which is very useful. Detailed tutorials can be found in the [ComplexHeatmap Complete Reference](https://jokergoo.github.io/ComplexHeatmap-reference/book/).
+This package uses the `Heatmap()` function from the `ComplexHeatmap` package, which is very versatile. Detailed tutorials can be found in the [ComplexHeatmap Complete Reference](https://jokergoo.github.io/ComplexHeatmap-reference/book/).
 
-However, before we can get to that part, we need to prepare the data set for heatmapping.
+However, prior to heatmapping, we need to prepare the data set.
 
 ### Preparation for Heatmapping {#Preparation}
 
-Our data set is clean, but now we need to transform it so that genera classifications are column names, samples are on rows, and the data set is strictly of type numeric. To do all of this we use `heatmap_prep()`. Several very important ASV selection arguments are `mean_ab_by_type`, `mean_ab_cutoff`, `select_ASVs`, and `taxa_cutoff`. Since heatmapping over 900 taxa is a bit too much and because we are interested in taxa which make up a large portion of the samples, we can employ cutoffs to slim down the data set. All arguments apply cutoffs, but in different ways. 
+Our data set is clean, but now we need to transform it so that genera classifications are column names, samples are on rows, and the data set is entirely of type `numeric`. To do all of this we use `heatmap_prep()`. Since heatmapping over 900 taxa could be overwhelming and because we are interested in taxa with high relative abundance, we employ cutoffs to trim the data set. Several  important ASV selection arguments are `mean_ab_by_type`, `mean_ab_cutoff`, `select_ASVs`, and `taxa_cutoff`. All these arguments apply cutoffs, but in different ways. 
 
 Only one option can be used at a time. They will be evaluated in the order listed so if `mean_ab_by_type` is passed a character vector, no other selection methods will be used.
 
@@ -291,19 +366,42 @@ Only one option can be used at a time. They will be evaluated in the order liste
 
 `taxa_cutoff` applies a ranked abundance cutoff, which only retains taxa ranked above the cutoff number given i.e. `taxa_cutoff = 10` will keep the top 10 ranked taxa by abundance.
 
-Note, only one cutoff should be applied at a time, and `mean_ab_cutoff` will not work correctly if used after `taxa_cutoff` since proportions will change if the total number of taxa is decreased.
+Note, only one cutoff should be applied at a time, and `mean_ab_cutoff` will not work correctly if used after `taxa_cutoff` since proportions will change if the total number of taxa is reduced.
 
-```{r}
+```{r heatmap_preparation}
 #Theis All Sample Types Heatmap
-Theis_preheat_by_type <- heatmap_prep(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, class_col = "Genus", df_meta = Theis_rare_META, mean_ab_by_type = "Level", mean_ab_cutoff = FALSE)
+Theis_preheat_by_type <- heatmap_prep(
+  df = Theis_rare_ASV, 
+  df_tax = Theis_rare_TAX, 
+  class_col = "Genus", 
+  df_meta = Theis_rare_META, 
+  mean_ab_by_type = "Level", 
+  mean_ab_cutoff = FALSE)
 
-Theis_preheat_by_1pct_cutoff <- heatmap_prep(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, class_col = "Genus", df_meta = Theis_rare_META, mean_ab_cutoff = TRUE)
+Theis_preheat_by_1pct_cutoff <- heatmap_prep(
+  df = Theis_rare_ASV, 
+  df_tax = Theis_rare_TAX, 
+  class_col = "Genus", 
+  df_meta = Theis_rare_META, 
+  mean_ab_cutoff = TRUE)
 
-Theis_preheat_top10 <- heatmap_prep(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, class_col = "Genus", df_meta = Theis_rare_META, mean_ab_cutoff = FALSE, taxa_cutoff = 10)
+Theis_preheat_top10 <- heatmap_prep(
+  df = Theis_rare_ASV, 
+  df_tax = Theis_rare_TAX, 
+  class_col = "Genus", 
+  df_meta = Theis_rare_META, 
+  mean_ab_cutoff = FALSE, 
+  taxa_cutoff = 10)
 
 Theis_topASVs <- get_top_ASVs(df = Theis_rare_ASV, number = 10, ASVs_on_Rows = TRUE)
 
-Theis_preheat_top_ASVs <- heatmap_prep(df = Theis_rare_ASV, df_tax = Theis_rare_TAX, class_col = "Genus", df_meta = Theis_rare_META, select_ASVs = Theis_topASVs, mean_ab_cutoff = FALSE)
+Theis_preheat_top_ASVs <- heatmap_prep(
+  df = Theis_rare_ASV, 
+  df_tax = Theis_rare_TAX, 
+  class_col = "Genus", 
+  df_meta = Theis_rare_META, 
+  select_ASVs = Theis_topASVs, 
+  mean_ab_cutoff = FALSE)
 ```
 
 As we can see, the two data sets prepared for heatmapping look quite similar. 
@@ -314,26 +412,43 @@ We are now ready to plot our first heatmap with `heatmapping()`. This function w
 
 Note that we do not have to store the plot into anything to obtain a plot.
 
-```{r fig.width=19, fig.height=8}
+```{r heatmap_plot, fig.width=19, fig.height=8}
 
-Theis_heatmap_All <- heatmapping(df = Theis_preheat_by_type, df_meta = Theis_rare_META, types_col = "Level", scalecolor = "red-blue", title = "Theis ASVs >1% by Type")
+Theis_heatmap_All <- heatmapping(
+  df = Theis_preheat_by_type, 
+  df_meta = Theis_rare_META, 
+  types_col = "Level", 
+  scalecolor = "red-blue", 
+  title = "Theis ASVs >1% by Type")
 ```
 
-We can see the differences here:
+Note that once we have normalized the data, relative and absolute abundance give the same results.
 
-```{r animation.hook= "gifski", fig.width=19, fig.height=8}
+```{r rel_and_abs_heatmap, animation.hook= "gifski", fig.width=19, fig.height=8}
 
-heatmapping(df = Theis_preheat_top_ASVs, df_meta = Theis_rare_META, types_col = "Level", scalecolor = "red-blue", title = "Theis ASVs >1% by Type", by_percent = TRUE)
-heatmapping(df = Theis_preheat_top_ASVs, df_meta = Theis_rare_META, types_col = "Level", scalecolor = "red-blue", title = "Theis ASVs >1% by Type", by_percent = FALSE)
+heatmapping(
+  df = Theis_preheat_top_ASVs, 
+  df_meta = Theis_rare_META, 
+  types_col = "Level", 
+  scalecolor = "red-blue", 
+  title = "Theis ASVs >1% by Type", 
+  by_percent = TRUE)
+heatmapping(
+  df = Theis_preheat_top_ASVs, 
+  df_meta = Theis_rare_META, 
+  types_col = "Level", 
+  scalecolor = "red-blue", 
+  title = "Theis ASVs >1% by Type", 
+  by_percent = FALSE)
 ```
 
 ***
 
 ### Agglomeration {#Agglomeration}
 
-Agglomeration can be used to observe patterns in taxonomic data at many levels, not just the ASV level. Agglomeration is performed with `agglomerate()` on the normalized dataset.
+Agglomeration can be used to observe patterns in taxonomic data at many levels, not just the ASV level. For instance, agglomeration can be used to combine the abundances of ASVs with the same Genus level classification. Agglomeration is performed with `agglomerate()` on the normalized dataset.
 
-```{r}
+```{r agglomeration}
 Theis_agg <- agglomerate(df = Theis_rare_ASV,df_tax = Theis_rare_TAX, agg_class = "Genus")
 Theis_agg_tax <- data.frame(Genus = rownames(Theis_agg), row.names = rownames(Theis_agg))
 Theis_agg_P <- Theis_agg %>% select_if(colnames(.) %in% Theis_META_P$Run)
@@ -349,39 +464,45 @@ Theis5 <- get_top_ASVs(Theis_agg_P, 5)
 
 For detailed instructions and tutorials on how to run DECONTAM or Phyloseq, please visit [Decontam Reference](https://benjjneb.github.io/decontam/vignettes/decontam_intro.html), and [Phyloseq Reference](https://joey711.github.io/phyloseq/).
 
-This package utilizes both `DECONTAM` and `Phyloseq` to obtain a data set relatively free of contaminants. `DECONTAM` has two methods of determining contaminants. A prevalence method, which is utilized in this package, and a frequency method which is not. If possible, it is advisable to use both. The prevalence method relies on the assumption that taxa that are more prevalent in negative control samples are contaminants and taxa that are more prevalent in regular samples are true taxa. However, when dealing with low read count samples such as what can be obtained from sequencing placental samples, taxa can appear equally in both negative controls and regular samples. `DECONTAM` employs an adjustable DECONTAM score threshold which ranges from 0.0 to 1.0. As the threshold gets lower, more taxa are considered contaminants. The threshold cutoff selected can be somewhat subjective. A good rule of thumb is that if taxa from negative controls are still showing in regular samples in high abundances, the threshold is too low.
+This package utilizes both `DECONTAM` and `Phyloseq` to obtain a data set relatively free of contaminants. `DECONTAM` has two methods of determining contaminants. A prevalence method that is utilized in this package, and a frequency method that is not. If possible, it is advisable to use both. The prevalence method assumes that prevalent taxa in technical control samples are contaminants and prevalent taxa in regular samples are true taxa. However, when dealing with low read count samples, such as what can be obtained from sequencing placental samples, taxa can appear equally in both technical controls and regular samples. `DECONTAM` employs an adjustable DECONTAM score threshold which ranges from 0.0 to 1.0. As the threshold gets lower, more taxa are considered contaminants. The selection of a threshold cutoff can be somewhat subjective. However, a good rule of thumb is that if taxa from technical controls are still highly abundant in regular samples, the threshold is not stringent enough.
 
 ### How to Set the Threshold {#How}
 
 
 #### Prepare the Data Set {#Prepare}
 
-With this package it is quite easy. First, we need to go back to our original `merged_clean` data set. DECONTAM is always run before normalization. From there, we use `decontam_prep()` to prepare the data set.
+With this package it is quite easy to determine the appropriate threshold. First, we return to the original `merged_clean` data set. DECONTAM is always run before normalization. Next, we use `decontam_prep()` to prepare the data set (i.e. convert it to a `phyloseq` object).
 
-```{r}
+```{r decontam_prep}
 #a column in Theis_META_order needs to indicate samples as either "sample" or "control"
-Theis_META_order$Deco_type <- case_when(Theis_META_order$Type == "Placenta" ~ "sample", Theis_META_order$Type == "Technical Control" ~ "control")
+Theis_META_order$Deco_type <- case_when(
+  Theis_META_order$Type == "Placenta" ~ "sample", 
+  Theis_META_order$Type == "Technical Control" ~ "control")
 
-DECO_prep <- decontam_prep(df = Theis_merged_order, meta = Theis_META_order, type = "Deco_type", sample_col = "Run")
+DECO_prep <- decontam_prep(
+  df = Theis_merged_order, 
+  meta = Theis_META_order, 
+  type = "Deco_type", 
+  sample_col = "Run")
 ```
 
 #### Plot the Data {#Plot}
 
-Now that our data set is prepared. We can run `decontam_histo_prev_plots()`. At this point, the threshold we choose doesn't matter. There should be a warning about removing rows containing non-finite values, but that can be ignored.
+Now that our data set is prepared, we run `decontam_histo_prev_plots()`. At this point, the threshold we choose doesn't matter. There should be a warning about removing rows containing non-finite values, but that can be ignored.
 
 ```{r fig.width=9, fig.height=7, warning= FALSE}
 decontam_plots <- decontam_histo_prev_plots(physeq = DECO_prep, thresh = 0.1, study_name = "Theis")
 decontam_plots$Histogram
 ```
-The histogram generated looks at every single ASV and gives it a decontam score (how likely it is to be a contaminant). It also looks at how prevalent the ASV is and plots that as a deeper green hue. Finally, ASVs that share the same Decontam score are grouped on the bars with higher prevalence ASVs at the bottom. 
+This histogram looks at each ASV and gives it a DECONTAM score, which represents how likely it is to be a contaminant. It also indicates the prevalence of each ASV as bars with darker green hue. Finally, ASVs that share the same DECONTAM score are grouped together. 
 
-When making a decision for threshold value given low read count samples and a high likelihood of contamination, thresholds less than `0.5` and even less than `0.25` are appropriate. Multiple thresholds can be set to get an idea. For this data set, `0.10` was used as a final threshold. The rationale is that we are looking for highly prevalent taxa which have low decontam scores. At `0.06` and below we can see that ASVs have high prevalence and at `0.17` there is a spike of low prevalence ASVs; the former would be more likely to constitute a placental microbiome than the latter so we set a threshold in the middle.
+When determining the appropriate DECONTAM threshold value for low read count samples with a high likelihood of contamination, thresholds less than `0.5` and even less than `0.25` are appropriate. Multiple thresholds can be set to evaluate the extent of conatamination in the data set. For this data set, `0.10` was used as a final threshold since we wanted to keep highly prevalent taxa which had low DECONTAM scores while excluding low prevalence ASVs and ASVs which were highly prevalent in technical controls. At `0.06` and below we can see that ASVs have high prevalence and at `0.17` there is a spike of low prevalence ASVs; the former would be more likely to constitute a placental microbiota than the latter so we set a threshold to exclude the latter ASVs.
 
 ```{r fig.width=9, fig.height=7}
 decontam_plots$Prevalence_Plot
 ```
 
-This Prevalence plot lets us take a different look at overall prevalence of taxa. Contaminants in blue are more likely to be found in negative controls than taxa in red. Again, going back and trying different thresholds is recommended.
+This Prevalence plot lets us take a different look at overall prevalence of taxa. Contaminants in blue are more likely to be found in technical controls than taxa in red. Again, going back and trying different thresholds is recommended.
 
 ```{r animation.hook= "gifski", fig.width= 9, fig.height=7}
 decontam_plots.5 <- decontam_histo_prev_plots(physeq = DECO_prep, thresh = 0.5, study_name = "Theis")
@@ -411,13 +532,13 @@ Theis_contaminants <- Theis_decontaminated$Contaminants
 head(Theis_contaminants[,1:20], 5)
 ```
 
-`decontaminate()` will return a list of three objects. The true taxa data set, the contaminants, and the threshold which was used. It is important to note that `decontaminate()` uses the `isNotContaminant()` function, which is only appropriate for low biomass sites or low read count sites like the placenta.
+`decontaminate()` will return a list of three objects (the true taxa, the contaminants, and the threshold which was used), which can each be accessed with `$` after the name of the list. It is important to note that `decontaminate()` uses the `isNotContaminant()` function, which is only appropriate for low biomass sites or low read count sites like the placenta.
 
 ***
 
 ## Finishing Up {#Finishing}
 
-Now that we have a data set run through DECONTAM, we need to re-plot everything. We can take the `Theis_true_taxa` data set and use the same process to generate PCoA plots, and heatmaps. 
+Now that we have a data set with contaminants removed by DECONTAM, we need to re-plot everything. We can take the `Theis_true_taxa` data set and use the same process to generate PCoA plots, and heatmaps. 
 
-Note that for this pass with a decontaminated data set, it is recommended to use a taxa cutoff in heatmap prep instead of the mean abundance cutoff because decontam filtering will have already modified taxa proportions by removing contaminant taxa from the data set.
+Note that for this pass with a DECONTAMinated data set, it is recommended to use a taxa cutoff in heatmap prep instead of the mean abundance cutoff because DECONTAM filtering will have already modified the taxa proportions by removing contaminant taxa from the data set.
 

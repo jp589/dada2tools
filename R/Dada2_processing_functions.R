@@ -41,7 +41,7 @@ agglomerate <- function(df, df_tax, agg_class){
 #' @param invert_y boolean vector indicating whether plot should be inverted over the x-axis.
 #' @param ASP numeric vector. Aspect ratio for the plot. Default is 1
 #' @param Legend_Yspace numeric vector which modifies the spacing between legend entries. Default is 1, Range between 0 and 1.
-#' @param rel boolean vector indicating whether data in `df` is already converted to percent relative abundances or not. Default is `FALSE`
+#' @param rel boolean vector indicating whether data in `df` should be converted to percent relative abundances or not. Default is `FALSE`
 #' @param red_blue boolean vector indicating whether red/blue color palette is desired. Default is `FALSE`
 #' @param all_O boolean vector indicating whether all points should be plotted as open circles. Defualt is `FALSE`
 #' @param taxa_on_rows boolean vector indicating whether ASVs/OTUs in `df` taxonomy are on rows or on columns. Default is `TRUE`
@@ -402,7 +402,7 @@ dadaset_clean <- function(df, read_thresh = 100) {
   }
 
   #Outputs changes made to dataset.
-  cat("Originally there were", nrow_taxa_ori, "taxa.", nrow_taxa_ori - nrow_taxa_bac, "were not bacterial or classified at phylum level.", nrow_taxa_bac - nrow_taxa_Mit, "were mitochondrial.", nrow_taxa_Mit - nrow_taxa_Chl, "were chloroplast.", nrow_taxa_Chl, "taxa remain. ")
+  cat("Originally there were", nrow_taxa_ori, "taxa.\n", nrow_taxa_ori - nrow_taxa_bac, "were not bacterial or classified at phylum level.\n", nrow_taxa_bac - nrow_taxa_Mit, "were mitochondrial.", nrow_taxa_Mit - nrow_taxa_Chl, "were chloroplast.\n", nrow_taxa_Chl, "taxa remain. ")
   cat(length(elim_names), ifelse(length(elim_names) > 1 | length(elim_names) < 1, "samples", "sample"), "eliminated with less than", read_thresh, "reads:", elim_names)
 
   #at this point the dataset is cleaned and ready to move to preparation for other analyses.
@@ -518,9 +518,9 @@ decontam_histo_prev_plots <- function(physeq, thresh = 0.5, study_name){
   #creates title for prevalence plot
   prev_title <- paste("Contaminant Prevalence at Threshold:", thresh, "for", study_name, "Study")
 
-  #plots prevalence with taxa negative control prevalence on the x-axis and taxa sample prevalence on the y-axis.
+  #plots prevalence with taxa technical control prevalence on the x-axis and taxa sample prevalence on the y-axis.
   prev_plot <- ggplot2::ggplot(data=df.pa, ggplot2::aes(x=physeq.neg, y=physeq.pos, color=contaminant)) + ggplot2::geom_point() +
-    ggplot2::xlab("Prevalence in Negative Controls") + ggplot2::ylab("Prevalence in Samples") + ggplot2::ggtitle(prev_title)
+    ggplot2::xlab("Prevalence in Technical Controls") + ggplot2::ylab("Prevalence in Samples") + ggplot2::ggtitle(prev_title)
 
   #returns plot list
   list(Histogram = decontam_histogram, Prevalence_Plot = prev_plot)
