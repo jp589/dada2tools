@@ -126,7 +126,7 @@ beta_div <- function(df, df_meta, type, study, inset = 0, invert_x = FALSE, inve
   if(legendyn == TRUE){
     #adds a legend in the topright corner of the plot with adjustable inset.
     if(!missing(type2)){
-      graphics::legend("bottomright", inset = c(inset, 0), legend = sort(unique(df_meta[[type2]])), col = "black", pch = as.numeric(as.factor(df_meta[[type2]])), bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
+      graphics::legend("bottomright", inset = c(inset, 0), legend = sort(unique(df_meta[[type2]])), col = "black", pch = sort(unique(as.numeric(as.factor(df_meta[[type2]])))), bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
       graphics::legend("topright", inset = c(inset,0), legend = sort(unique(df_meta[[type]])), col = if(red_blue == TRUE){cols[as.numeric(as.factor(sort(unique(X))))]}else{1:length(unique(X))}, pch = 19, bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
     } else{
       graphics::legend("topright", inset = c(inset,0), legend = sort(unique(df_meta[[type]])), col = if(red_blue == TRUE){cols[as.numeric(as.factor(sort(unique(X))))]}else{1:length(unique(X))}, pch = 19, bty = "n", cex = 1.5, y.intersp = Legend_Yspace)
