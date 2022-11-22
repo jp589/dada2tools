@@ -157,7 +157,7 @@ blaster <- function(seqs, names, alignments = 1) {
   #store sequence data in fasta formatted object
   seqinr::write.fasta(sequences = as.list(seqs), names = names, file.out = "blaster.fasta")
   #Take fasta object and run it against 16S rRNA gene database.
-  system(paste0("blastn -query ", paste0(here::here(), "/blaster.fasta -num_alignments "), alignments, " -num_threads 3 -out ", paste0(here::here(), "/Blasted.tsv -outfmt \"6 qseqid evalue bitscore staxids pident qcovs stitle\" -db "), paste0(system.file("extdata", package="dada2tools"), "/16S_ribosomal_RNA")))
+  system(paste0("blastn -query ", paste0(here::here(), "/blaster.fasta -num_alignments "), alignments, " -num_threads 3 -out ", cat(here::here(), "/Blasted.tsv -outfmt \"6 qseqid evalue bitscore staxids pident qcovs stitle\" -db "), paste0(system.file("extdata", package="dada2tools"), "/16S_ribosomal_RNA")))
   results <- utils::read.table(file = "Blasted.tsv", sep = "\t", stringsAsFactors = FALSE)
   colnames(results) <- c("Query Seq ID", "Expect value", "Bitscore", "Subject TAX ID", "Percent Identical", "Query Coverage", "Subject Title")
   unlink(c("blaster.fasta", "Blasted.tsv"))
